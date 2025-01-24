@@ -7,7 +7,8 @@ from functools import partial
 
 def send_response(sender, message):
     vk_session.method("messages.send", {"chat_id": sender, "message": message, "random_id": get_random_id()})
-
+def send_sticker(sender, id):
+    vk_session.method("messages.send", {"chat_id": sender, "sticker_id": id, "random_id": get_random_id()})
 
 def start():
     send_response(sender, "I AM ALIVE!!!")
@@ -45,7 +46,8 @@ def unknown_command():
 
 def stopper(command):
     send_response(sender, f"Did you mean <{command}> ? \nThen I cannot help you :<")
-
+    # the way to send a sticker, if you want to send emodji use this in your message: &#000000; (id)
+    send_sticker(sender, 69407)
 
 COMMANDS = {
     'start': start,
@@ -78,6 +80,7 @@ if __name__ == '__main__':
             received_message = event.message["text"]
             command = received_message.split()[0].lower().strip()
             sender = event.chat_id
+            # print(sender)
             COMMANDS.get(command, unknown_command)()
         else:
             print('UNKNOWN EVENT')

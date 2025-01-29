@@ -3,6 +3,7 @@ import os
 import re
 from datetime import datetime
 from win32com.client import Dispatch
+from itertools import takewhile
 PATH = r"E:\VKbot_down"
 
 def create_shortcut(target_path, shortcut_path):
@@ -22,6 +23,29 @@ def create_shortcut(target_path, shortcut_path):
     shortcut.WorkingDirectory = os.path.dirname(target_path)
     shortcut.save()
 
+
+def imp_path(imp, dir=''):
+    '''Maybe add AI to check for typing errors'''
+    name = 'link'       # default name
+    path = re.sub(r"[,. /\\]", r" ", imp).strip().split()
+
+    new_path = list(takewhile(lambda elem: "?" not in elem, path))
+    if len(new_path) != len(path):
+        new_path.append(path[len(new_path)])
+    path = new_path         # probably will need to move this part in another function
+
+    # print(new_path)
+    if "?" in path[-1]:
+        if '?' == path[-1]:
+            path[-2] = path[-2]+path[-1]
+            path = path[:-1]
+        name = path[-1].replace('?', '')
+        path = path[:-1]
+    path = ("/".join(path))
+    os.makedirs(f"{dir}/{path}", exist_ok=True)
+    return f"{dir}/{path}/{name}.lnk"
+
+
 def path_creator(path):
     now = datetime.now()
     date = now.strftime(r"%Y\%b\%d")
@@ -39,7 +63,7 @@ def path_creator(path):
         index += 1
 
 
-def down_smart(url, ext='jpg'):
+def down_smart(url, ext='jpg', imp=None):
     extensions = {'jpg': 'images',
                   'png': 'images',
                   'txt': 'files',
@@ -66,9 +90,12 @@ def down_smart(url, ext='jpg'):
             # file.write(response.content)
         print("Downloaded successfully")
 
-        if total_len_mb > 30:
-            print("Shortcut created")
+        if imp is not None:
+            create_shortcut(f"{file_name}.{ext}", imp_path(imp, dir=rf"{PATH}\important\{extensions.get(ext, 'none_of_this')}"))
+            print("important shortcut created")
+        elif total_len_mb > 30:
             create_shortcut(f"{file_name}.{ext}", rf"{PATH}\heavy\{extensions.get(ext, 'none_of_this')}\shortcut_{round(total_len_mb)}MB.lnk")
+            print("heavy shortcut created")
             # os.symlink(file_name, rf"{PATH}\heavy\{extensions.get(ext, 'none_of_this')}")
     except Exception as exp:
         print("Something went wrong...")
@@ -78,8 +105,11 @@ def down_smart(url, ext='jpg'):
 
 if __name__ == '__main__':
     # down_smart('https://assets.mmsrg.com/isr/166325/c1/-/ASSET_MMS_141874716?x=536&y=402&format=jpg&quality=80&sp=yes&strip=yes&trim&ex=536&ey=402&align=center&resizesource&unsharp=1.5x1+0.7+0.02&cox=0&coy=0&cdx=536&cdy=402')
-    down_smart('https://www.myinstants.com/media/sounds/emotional-damage-meme.mp3', ext='mp3')
+    #
     # down_smart('https://videos.pexels.com/video-files/1409899/1409899-uhd_2560_1440_25fps.mp4', ext='mp4')
     # down_smart('https://www.shutterstock.com/shutterstock/videos/1038882452/preview/stock-footage-a-thunderstorm-raging-in-the-distance-off-the-coast-of-mooloolaba-sunshine-coast-australia.webm', ext='mp4')
-    # down_smart('https://videos.pexels.com/video-files/1893746/1893746-uhd_2560_1440_25fps.mp4', ext='mp4')
+    down_smart('https://videos.pexels.com/video-files/1893746/1893746-uhd_2560_1440_25fps.mp4', ext='mp4')
+    down_smart('https://videos.pexels.com/video-files/1893746/1893746-uhd_2560_1440_25fps.mp4', ext='mp4', imp='  test  , first')
     # print("%Y\%b\%d")
+    # print(imp_path('    work ai , beta, geta   .    done        /   /   /  geto    \\  prin  new_survey     ?      bghjkl yyujj 778  '))
+    down_smart('https://www.myinstants.com/media/sounds/emotional-damage-meme.mp3', ext='mp3', imp='// work    ai   ,  new_survey  ?   ')

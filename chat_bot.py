@@ -3,6 +3,7 @@ from vk_api.utils import get_random_id
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from config import TOKEN, ID
 from functools import partial
+from itertools import chain
 
 
 def send_response(sender, message):
@@ -75,12 +76,39 @@ if __name__ == '__main__':
     longpoll = VkBotLongPoll(vk_session, ID)
     print("Bot is running...")
     for event in longpoll.listen():
+        # print(event.message['text'])
+        # print(event.message)
+        print('---------------------------------------------------------')
+        # print(event.message['attachments'])
+        # print(event.message.get('reply_message'))           # ignore
         if event.type == VkBotEventType.MESSAGE_NEW and event.from_chat:
-            print("New Message")
-            received_message = event.message["text"]
-            command = received_message.split()[0].lower().strip()
-            sender = event.chat_id
-            # print(sender)
-            COMMANDS.get(command, unknown_command)()
+            attachments = event.message["attachments"] + list(chain(*[m.get("attachments", []) for m in event.message['fwd_messages']]))
+            if not attachments:
+                print("New Message")
+                received_message = event.message["text"]
+                command = received_message.split()[0].lower().strip()
+                sender = event.chat_id
+                # print(sender)
+                COMMANDS.get(command, unknown_command)()
+            else:
+                print(attachments)
+                for att in attachments:
+                    print()
+                    if att.get('type') == 'photo':
+                        print('photo')
+                        print(f"url: {att['photo']['orig_photo']['url']}")
+                    elif att.get('type') == 'video':
+                        print('video')
+                        print(f"access_key: {att['video']['track_code']}")
+                    elif att.get('type') == 'doc':
+                        print('doc')
+                        print(f"url: {att['doc']['url']}")
+                        print(f"ext: {att['doc']['ext']}")
+                    elif att.get('type') == 'audio_message':
+                        print('audio_message')
+                        print(f"url: {att['audio_message']['link_mp3']}")
+                    else:
+                        print('UNKNOWN')
+
         else:
             print('UNKNOWN EVENT')

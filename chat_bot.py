@@ -1,10 +1,14 @@
 import vk_api as vk
 from vk_api.utils import get_random_id
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
-from config import TOKEN, ID
+from config import TOKEN, ID, GET_TOK, VK_VER
 from functools import partial
 from itertools import chain
 
+from data_storage.smart_download import down_smart
+
+# !!!!!!!!!!!!
+import requests
 
 def send_response(sender, message):
     vk_session.method("messages.send", {"chat_id": sender, "message": message, "random_id": get_random_id()})
@@ -92,21 +96,37 @@ if __name__ == '__main__':
                 COMMANDS.get(command, unknown_command)()
             else:
                 print(attachments)
+                print('---------------------')
                 for att in attachments:
-                    print()
                     if att.get('type') == 'photo':
                         print('photo')
-                        print(f"url: {att['photo']['orig_photo']['url']}")
+                        url = att['photo']['orig_photo']['url']
+                        down_smart(url, ext='jpg')
+                        # print(f"url: {url}")
                     elif att.get('type') == 'video':
+                        # id owner_id access_key
+                        video_get_url = f"https://api.vk.com/method/video.get?videos={att['video']['owner_id']}_{att['video']['id']}_{att['video']['access_key']}&access_token={GET_TOK}&v={VK_VER}"
+                        video_get_url = f"https://api.vk.com/method/account.getAppPermissions?access_token={GET_TOK}&v=5.199"
+                        # video_get_url = f"https://api.vk.com/method/video.get?videos=587938956_456239151_15293b0db2d712b64f&access_token={GET_TOK}&v=5.199"
+                        req = requests.get(video_get_url)
+                        print(req.json())
                         print('video')
                         print(f"access_key: {att['video']['track_code']}")
                     elif att.get('type') == 'doc':
                         print('doc')
-                        print(f"url: {att['doc']['url']}")
-                        print(f"ext: {att['doc']['ext']}")
+                        url = att['doc']['url']
+                        ext = att['doc']['ext'].replace('tui', 'mp3')     # VK can not send 'mp3', so I rename them into
+                                                                    # 'tui' when I send them and convert them back here
+                        down_smart(url, ext)
+                        # print(f"url: {url}")
+                        # print(f"ext: {ext}")
                     elif att.get('type') == 'audio_message':
+                        if att['audio_message']['transcript_state'] == 'in_progress':
+                            continue
                         print('audio_message')
-                        print(f"url: {att['audio_message']['link_mp3']}")
+                        url = att['audio_message']['link_ogg']
+                        down_smart(url, ext='mp3')
+                        # print(f"url: {url}")
                     else:
                         print('UNKNOWN')
 

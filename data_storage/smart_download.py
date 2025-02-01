@@ -4,6 +4,7 @@ import re
 from datetime import datetime
 from win32com.client import Dispatch
 from itertools import takewhile
+from bs4 import BeautifulSoup
 PATH = r"E:\VKbot_down"
 
 def create_shortcut(target_path, shortcut_path):
@@ -62,12 +63,18 @@ def path_creator(path):
             return rf"{current_path}\{file_name}{f'_{str(index)}'.replace('_0', '')}"
         index += 1
 
+def convert_url(resp):
+    """Converts url to the indirect website into the url to direct file (which is located on this website)"""
+    soup = BeautifulSoup(resp.content, "lxml")
+    new_url = soup.find("a", class_='FlatButton FlatButton--primary FlatButton--size-l').get('href')
+    print(new_url)
+    return new_url
 
 def down_smart(url, ext='jpg', imp=None):
     extensions = {'jpg': 'images',
                   'png': 'images',
                   'txt': 'files',
-                  'doc': 'files',
+                  'docx': 'files',
                   'pdf': 'files',
                   'mp4': 'video',
                   'mkv': 'video',
@@ -75,8 +82,13 @@ def down_smart(url, ext='jpg', imp=None):
                   'wav': 'audio'}
     try:
         response = requests.get(url, stream=True)
-        total_len_mb = int(response.headers.get('Content-Length')) / (1024 * 1024)
+        print(response.headers)
+        # response.json()
+        if 'text/html;' in response.headers.get('Content-Type') and ext != 'html':
+            # if we get html file, but expect something else, we need to find the right link in this html file
+            response = requests.get(convert_url(response), stream=True)                  # to do this we use convert_url
 
+        total_len_mb = int(response.headers.get('Content-Length')) / (1024 * 1024)
         file_name = path_creator(rf"{PATH}\main\{extensions.get(ext, 'none_of_this')}")
         # print(file_name)
 

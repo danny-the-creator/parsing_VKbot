@@ -4,6 +4,7 @@ from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from config import TOKEN, ID
 from functools import partial
 
+from small_features.wiki_info import wiki_search
 
 def send_response(sender, message):
     vk_session.method("messages.send", {"chat_id": sender, "message": message, "random_id": get_random_id()})
@@ -39,6 +40,18 @@ def help():
     """
     send_response(sender, HELP_MESSAGE)
 
+def wiki(query='nothing', *args):
+    lang_codes = ['aa', 'ab', 'ae', 'af', 'ak', 'am', 'an', 'ar', 'as', 'av', 'ay', 'az', 'ba', 'be', 'bg', 'bh', 'bi', 'bm', 'bn', 'bo', 'br', 'bs', 'ca', 'ce', 'ch', 'co', 'cr', 'cs', 'cu', 'cv', 'cy', 'da', 'de', 'dv', 'dz', 'ee', 'el', 'en', 'eo', 'es', 'et', 'eu', 'fa', 'ff', 'fi', 'fj', 'fo', 'fr', 'fy', 'ga', 'gd', 'gl', 'gn', 'gu', 'gv', 'ha', 'he', 'hi', 'ho', 'hr', 'ht', 'hu', 'hy', 'hz', 'ia', 'id', 'ie', 'ig', 'ii', 'ik', 'io', 'is', 'it', 'iu', 'ja', 'jv', 'ka', 'kg', 'ki', 'kj', 'kk', 'kl', 'km', 'kn', 'ko', 'kr', 'ks', 'ku', 'kv', 'kw', 'ky', 'la', 'lb', 'lg', 'li', 'ln', 'lo', 'lt', 'lu', 'lv', 'mg', 'mh', 'mi', 'mk', 'ml', 'mn', 'mr', 'ms', 'mt', 'my', 'na', 'nb', 'nd', 'ne', 'ng', 'nl', 'nn', 'no', 'nr', 'nv', 'ny', 'oc', 'oj', 'om', 'or', 'os', 'pa', 'pi', 'pl', 'ps', 'pt', 'qu', 'rm', 'rn', 'ro', 'ru', 'rw', 'sa', 'sc', 'sd', 'se', 'sg', 'si', 'sk', 'sl', 'sm', 'sn', 'so', 'sq', 'sr', 'ss', 'st', 'su', 'sv', 'sw', 'ta', 'te', 'tg', 'th', 'ti', 'tk', 'tl', 'tn', 'to', 'tr', 'ts', 'tt', 'tw', 'ty', 'ug', 'uk', 'ur', 'uz', 've', 'vi', 'vo', 'wa', 'wo', 'xh', 'yi', 'yo', 'za', 'zh', 'zu']
+    if query in lang_codes:
+        lang = query
+        query = ' '.join(args) if len(args) > 0 else 'nothing'
+    else:
+        lang = 'en'
+        query = query + ' ' + ' '.join(args)
+    resp, exp = wiki_search(query, lang)
+    send_response(sender, resp)
+    if exp:
+        send_sticker(sender, 69407)
 
 def unknown_command():
     send_response(sender, "what is my purpose?")
@@ -58,7 +71,7 @@ COMMANDS = {
     'add_task': partial(stopper, 'add_task'),
     'forward': partial(stopper, 'forward'),
     'finish_reminder': partial(stopper, 'finish_reminder'),
-    'wiki': partial(stopper, 'wiki'),
+    'wiki': wiki,
     'lm_travel': partial(stopper, 'lm_travel'),
     'dice': partial(stopper, 'dice'),
     'coin': partial(stopper, 'coin'),
@@ -77,10 +90,13 @@ if __name__ == '__main__':
     for event in longpoll.listen():
         if event.type == VkBotEventType.MESSAGE_NEW and event.from_chat:
             print("New Message")
-            received_message = event.message["text"]
-            command = received_message.split()[0].lower().strip()
+            received_message = event.message["text"].split()
+            command = received_message[0].lower().strip()
+            rest = received_message[1:]
             sender = event.chat_id
             # print(sender)
-            COMMANDS.get(command, unknown_command)()
+            COMMANDS.get(command, unknown_command)(*rest)
         else:
             print('UNKNOWN EVENT')
+
+

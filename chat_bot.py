@@ -3,6 +3,8 @@ from vk_api.utils import get_random_id
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from config import TOKEN, ID
 from functools import partial
+
+from small_features.wiki_info import wiki_search
 from small_features.destiny import dice_roll, flip_coin, num_gen, destiny_decoder
 
 def send_response(sender, message):
@@ -39,6 +41,20 @@ def help():
     """
     send_response(sender, HELP_MESSAGE)
 
+def wiki(query='nothing', *args):
+    lang_codes = ['aa', 'ab', 'ae', 'af', 'ak', 'am', 'an', 'ar', 'as', 'av', 'ay', 'az', 'ba', 'be', 'bg', 'bh', 'bi', 'bm', 'bn', 'bo', 'br', 'bs', 'ca', 'ce', 'ch', 'co', 'cr', 'cs', 'cu', 'cv', 'cy', 'da', 'de', 'dv', 'dz', 'ee', 'el', 'en', 'eo', 'es', 'et', 'eu', 'fa', 'ff', 'fi', 'fj', 'fo', 'fr', 'fy', 'ga', 'gd', 'gl', 'gn', 'gu', 'gv', 'ha', 'he', 'hi', 'ho', 'hr', 'ht', 'hu', 'hy', 'hz', 'ia', 'id', 'ie', 'ig', 'ii', 'ik', 'io', 'is', 'it', 'iu', 'ja', 'jv', 'ka', 'kg', 'ki', 'kj', 'kk', 'kl', 'km', 'kn', 'ko', 'kr', 'ks', 'ku', 'kv', 'kw', 'ky', 'la', 'lb', 'lg', 'li', 'ln', 'lo', 'lt', 'lu', 'lv', 'mg', 'mh', 'mi', 'mk', 'ml', 'mn', 'mr', 'ms', 'mt', 'my', 'na', 'nb', 'nd', 'ne', 'ng', 'nl', 'nn', 'no', 'nr', 'nv', 'ny', 'oc', 'oj', 'om', 'or', 'os', 'pa', 'pi', 'pl', 'ps', 'pt', 'qu', 'rm', 'rn', 'ro', 'ru', 'rw', 'sa', 'sc', 'sd', 'se', 'sg', 'si', 'sk', 'sl', 'sm', 'sn', 'so', 'sq', 'sr', 'ss', 'st', 'su', 'sv', 'sw', 'ta', 'te', 'tg', 'th', 'ti', 'tk', 'tl', 'tn', 'to', 'tr', 'ts', 'tt', 'tw', 'ty', 'ug', 'uk', 'ur', 'uz', 've', 'vi', 'vo', 'wa', 'wo', 'xh', 'yi', 'yo', 'za', 'zh', 'zu']
+    if query in lang_codes:
+        lang = query
+        query = ' '.join(args) if len(args) > 0 else 'nothing'
+    else:
+        lang = 'en'
+        query = query + ' ' + ' '.join(args)
+    resp, exp = wiki_search(query, lang)
+    send_response(sender, resp)
+    if exp:
+        send_sticker(sender, 69407)
+
+
 def dice():
     send_response(sender,f"You got: {dice_roll()}")
 
@@ -48,11 +64,12 @@ def coin():
 def magic_advice():
     send_response(sender, destiny_decoder())
 
-def unknown_command():
-    send_response(sender, "what is my purpose?")
-
 def rand(num="10"):
     send_response(sender, f"You got: {num_gen(int(num))}")
+
+
+def unknown_command():
+    send_response(sender, "what is my purpose?")
 
 def stopper(command):
     send_response(sender, f"Did you mean <{command}> ? \nThen I cannot help you :<")
@@ -68,7 +85,7 @@ COMMANDS = {
     'add_task': partial(stopper, 'add_task'),
     'forward': partial(stopper, 'forward'),
     'finish_reminder': partial(stopper, 'finish_reminder'),
-    'wiki': partial(stopper, 'wiki'),
+    'wiki': wiki,
     'lm_travel': partial(stopper, 'lm_travel'),
 
     'dice': dice,
@@ -96,3 +113,5 @@ if __name__ == '__main__':
             COMMANDS.get(command, unknown_command)(*rest)
         else:
             print('UNKNOWN EVENT')
+
+

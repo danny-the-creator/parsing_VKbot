@@ -34,7 +34,7 @@ def destiny_decoder():
     }
     return DECODER[random.randint(0, 19)]
 
-def num_gen(num=10):
+def num_gen(num):
     return str(random.randint(1, num))
 
 
@@ -42,7 +42,7 @@ def num_gen(num=10):
 if __name__ == '__main__':
     print(dice_roll())
     print(flip_coin())
-    print(num_gen())
+    print(num_gen(10))
     print(num_gen(100))
     print(destiny_decoder())
     print(destiny_decoder())

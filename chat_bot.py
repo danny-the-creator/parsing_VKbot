@@ -3,7 +3,7 @@ from vk_api.utils import get_random_id
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from config import TOKEN, ID
 from functools import partial
-
+from small_features.destiny import dice_roll, flip_coin, num_gen, destiny_decoder
 
 def send_response(sender, message):
     vk_session.method("messages.send", {"chat_id": sender, "message": message, "random_id": get_random_id()})
@@ -32,17 +32,27 @@ def help():
 
     - dice : roles a dice for you
     - coin : flips a coin for you
-    - magic_advice : tells you the future
-
+    - magic_advice : tells you the destiny
+    - rand <number> : returns you random number in range
 
     - any file/photo/video/audio will be downloaded and sorted
     """
     send_response(sender, HELP_MESSAGE)
 
+def dice():
+    send_response(sender,f"You got: {dice_roll()}")
+
+def coin():
+    send_response(sender, flip_coin())
+
+def magic_advice():
+    send_response(sender, destiny_decoder())
 
 def unknown_command():
     send_response(sender, "what is my purpose?")
 
+def rand(num="10"):
+    send_response(sender, f"You got: {num_gen(int(num))}")
 
 def stopper(command):
     send_response(sender, f"Did you mean <{command}> ? \nThen I cannot help you :<")
@@ -60,10 +70,11 @@ COMMANDS = {
     'finish_reminder': partial(stopper, 'finish_reminder'),
     'wiki': partial(stopper, 'wiki'),
     'lm_travel': partial(stopper, 'lm_travel'),
-    'dice': partial(stopper, 'dice'),
-    'coin': partial(stopper, 'coin'),
-    'magic_advice': partial(stopper, 'magic_advice'),
 
+    'dice': dice,
+    'coin': coin,
+    'magic_advice': magic_advice,
+    'rand': rand
 }
 
 
@@ -77,10 +88,11 @@ if __name__ == '__main__':
     for event in longpoll.listen():
         if event.type == VkBotEventType.MESSAGE_NEW and event.from_chat:
             print("New Message")
-            received_message = event.message["text"]
-            command = received_message.split()[0].lower().strip()
+            received_message = event.message["text"].split()
+            command = received_message[0].lower().strip()
+            rest = received_message[1:]
             sender = event.chat_id
             # print(sender)
-            COMMANDS.get(command, unknown_command)()
+            COMMANDS.get(command, unknown_command)(*rest)
         else:
             print('UNKNOWN EVENT')

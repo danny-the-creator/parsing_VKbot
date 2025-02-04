@@ -13,9 +13,37 @@ def send_sticker(sender, id):
     vk_session.method("messages.send", {"chat_id": sender, "sticker_id": id, "random_id": get_random_id()})
 
 
-def forward(receiver, *args, hidden=False):
-    if receiver[-1] == '-' or args[0] == '-':
-        hidden = True
+def forward(*args):
+    receivers = []
+    for receiver in args:
+        receiver = receiver.lower().strip()
+        if receiver.replace('-', '') in all_users.keys():
+            hidden = True if receiver[-1] == '-' else False
+            receivers.append((receiver.replace('-', ''), hidden))
+    send_response(sender, f"All the following messages will be transmitted to: {' '.join([r[0] for r in receivers])}\n"
+                          f"to stop it type: stop_ ")
+    transmission(receivers)
+
+def transmission(receivers):
+    for event in longpoll.listen():
+        if event.type == VkBotEventType.MESSAGE_NEW and event.from_chat:
+            user_name = id_name[event.message['from_id']]
+            if user_name == 'me':
+                if len(event.message['text']) > 4 and event.message['text'] == 'stop_':
+                    send_response(all_users[user_name]['chat'], "End of transmission, ready to serve your orders, Commander!")
+                    break
+                for receiver in receivers:
+                    if receiver[1]:
+                        message = event.message['text']
+                    else:
+                        message = f'message from my overlord:\n\"{event.message["text"]}\"'
+                    send_response(all_users[receiver[0]]['chat'], message)
+            if user_name in [r[0] for r in receivers]:
+                send_response(all_users['me']['chat'], f"{user_name} sends: \"{event.message['text']}\"")
+
+
+
+
 
 
 def execute(func, user, *rest):
@@ -38,7 +66,7 @@ def help():
     - help : To get this list again 
     - info : Get your day-to-day information
     - add_task : every message after this command will appear in to-do list
-    - stop : Stops the current process and returns to the main functionality
+    - stop_ : Stops the current process and returns to the main functionality
     - list : to show all of your tasks 
     - forward <ID_1 ID_2 ID_3> : after that all the messages will be send to the indicated receiver's IDs
     - finish_reminder <number> : mark the reminder as done and stops reminding about it
@@ -94,7 +122,7 @@ def rand(num="10"):
 def unknown_command():
     send_response(sender, "what is my purpose?")
 
-def stopper(command):
+def stopper():
     send_response(sender, f"Did you mean <{command}> ? \nThen I cannot help you :<")
     # the way to send a sticker, if you want to send emodji use this in your message: &#000000; (id)
     send_sticker(sender, 69407)
@@ -102,14 +130,14 @@ def stopper(command):
 COMMANDS = {
     'start': start,
     'help': help,
-    'info': partial(stopper, 'info'),
-    'stop': partial(stopper, 'stop'),
-    'list': partial(stopper, 'list'),
-    'add_task': partial(stopper, 'add_task'),
-    'forward': partial(stopper, 'forward'),
-    'finish_reminder': partial(stopper, 'finish_reminder'),
+    'info': stopper,
+    'stop': stopper,
+    'list': stopper,
+    'add_task': stopper,
+    'forward': forward,
+    'finish_reminder': stopper,
     'wiki': wiki,
-    'lm_travel': partial(stopper, 'lm_travel'),
+    'lm_travel': stopper,
 
     'dice': dice,
     'coin': coin,

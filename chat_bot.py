@@ -2,7 +2,7 @@ import vk_api as vk
 from vk_api.utils import get_random_id
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from config import TOKEN, ID_BOT, all_users, id_name
-from functools import partial
+import threading
 
 from small_features.wiki_info import wiki_search
 from small_features.destiny import dice_roll, flip_coin, num_gen, destiny_decoder
@@ -13,24 +13,33 @@ def send_sticker(sender, id):
     vk_session.method("messages.send", {"chat_id": sender, "sticker_id": id, "random_id": get_random_id()})
 
 
+PART_OF_TRANSMISSION = []
+
 def forward(*args):
     receivers = []
     for receiver in args:
-        receiver = receiver.lower().strip()
+        receiver = receiver.replace(',', '').lower().strip()
         if receiver.replace('-', '') in all_users.keys():
             hidden = True if receiver[-1] == '-' else False
             receivers.append((receiver.replace('-', ''), hidden))
-    send_response(sender, f"All the following messages will be transmitted to: {' '.join([r[0] for r in receivers])}\n"
-                          f"to stop it type: stop_ ")
-    transmission(receivers)
+    if receivers == []:
+        send_response(sender, f"You should select (existing) receivers\nI won't forward your message to <NOONE>!")
+    else:
+        send_response(sender, f"All the following messages will be transmitted to: "
+                              f"{', '.join([r[0] for r in receivers])}\nto stop it type: stop_ ")
+        thread = threading.Thread(target=transmission, args=(receivers,))
+        thread.start()
 
 def transmission(receivers):
+    global PART_OF_TRANSMISSION
+    PART_OF_TRANSMISSION = [all_users[r[0]]['chat'] for r in receivers] + [all_users['me']['chat']]
     for event in longpoll.listen():
-        if event.type == VkBotEventType.MESSAGE_NEW and event.from_chat:
+        if event.type == VkBotEventType.MESSAGE_NEW and event.from_chat and event.chat_id in PART_OF_TRANSMISSION:
             user_name = id_name[event.message['from_id']]
             if user_name == 'me':
                 if len(event.message['text']) > 4 and event.message['text'] == 'stop_':
                     send_response(all_users[user_name]['chat'], "End of transmission, ready to serve your orders, Commander!")
+                    PART_OF_TRANSMISSION = []
                     break
                 for receiver in receivers:
                     if receiver[1]:
@@ -156,10 +165,12 @@ if __name__ == '__main__':
     for event in longpoll.listen():
         if event.type == VkBotEventType.MESSAGE_NEW and event.from_chat:
             print("New Message")
+            sender = event.chat_id
+            if sender in PART_OF_TRANSMISSION:
+                continue
             received_message = event.message["text"].split()
             command = received_message[0].lower().strip()
             rest = received_message[1:]
-            sender = event.chat_id
             sender_id = event.message['from_id']
             execute(COMMANDS.get(command, unknown_command), sender_id, *rest)
         else:

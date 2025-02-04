@@ -1,9 +1,12 @@
 import vk_api as vk
 from vk_api.utils import get_random_id
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
-from config import TOKEN, ID_BOT, all_users, id_name
-import threading
+from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 
+import threading
+from functools import partial
+
+from config import TOKEN, ID_BOT, all_users, id_name
 from small_features.wiki_info import wiki_search
 from small_features.destiny import dice_roll, flip_coin, num_gen, destiny_decoder
 
@@ -14,6 +17,7 @@ def send_sticker(sender, id):
 
 
 PART_OF_TRANSMISSION = []
+LAST_COMMANDS = {}
 
 def forward(*args):
     receivers = []
@@ -51,20 +55,24 @@ def transmission(receivers):
                 send_response(all_users['me']['chat'], f"{user_name} sends: \"{event.message['text']}\"")
 
 
-
-
-
-
 def execute(func, user, *rest):
+    global LAST_COMMANDS
     if func.__name__ in all_users[id_name[user]]['access_rights'] or func.__name__ == 'unknown_command':
         func(*rest)
+        if func.__name__ not in ["last", "unknown_command"]:
+            LAST_COMMANDS[sender] = partial(func, *rest)
     else:
         send_response(sender, "Sorry, I cannot do that for you")
         send_sticker(sender, 69385)
 
+def last():
+    LAST_COMMANDS.get(
+        sender, lambda: send_response(sender, "I am sorry, but I don't remember your last command... &#128533;"))()
+
 def start():
     send_response(sender, "I AM ALIVE!!!")
-
+def stop():
+    send_response(sender, "What do you want me to stop? Your heart?")
 
 def help():
     HELP_MESSAGE = """
@@ -133,15 +141,15 @@ def unknown_command():
 
 def stopper():
     send_response(sender, f"Did you mean <{command}> ? \nThen I cannot help you :<")
-    # the way to send a sticker, if you want to send emodji use this in your message: &#000000; (id)
+    # the way to send a sticker, if you want to send emoji use this in your message: &#000000; (id)
     send_sticker(sender, 69407)
 
 COMMANDS = {
     'start': start,
     'help': help,
     'info': stopper,
-    'stop': stopper,
-    'list': stopper,
+    'stop': stop,
+    'list': stopper,        # do not know that it does
     'add_task': stopper,
     'forward': forward,
     'finish_reminder': stopper,
@@ -151,7 +159,9 @@ COMMANDS = {
     'dice': dice,
     'coin': coin,
     'magic_advice': magic_advice,
-    'rand': rand
+    'rand': rand,
+
+    'last': last
 }
 
 

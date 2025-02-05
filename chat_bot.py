@@ -12,13 +12,21 @@ from small_features.destiny import dice_roll, flip_coin, num_gen, destiny_decode
 
 def send_response(sender, message, key_v=0):
     keyboard = keyboard_ext() if key_v else keyboard_main()
-    vk_session.method("messages.send", {"chat_id": sender, "message": message, "random_id": get_random_id(), "keyboard": keyboard})
+    vk_session.method(
+        "messages.send", {"chat_id": sender, "message": message, "random_id": get_random_id(), "keyboard": keyboard})
+
 def send_sticker(sender, id):
     vk_session.method("messages.send", {"chat_id": sender, "sticker_id": id, "random_id": get_random_id()})
+
+def delete_message(sender, message_id): #!!
+    vk_control.messages.delete(group_id=ID_BOT, peer_id=2000000000+sender, cmids=message_id, delete_for_all=1)
+
 
 
 PART_OF_TRANSMISSION = []
 LAST_COMMANDS = {}
+
+
 
 def keyboard_main():
     """Setting up the Keyboard for most of the functions"""
@@ -32,6 +40,9 @@ def keyboard_ext():
     keyboard.add_button('HELP', color=VkKeyboardColor.PRIMARY)
     keyboard.add_button('STOP', color=VkKeyboardColor.NEGATIVE)
     return keyboard.get_keyboard()
+
+
+
 def forward(*args):
     receivers = []
     for receiver in args:
@@ -43,9 +54,10 @@ def forward(*args):
         send_response(sender, f"You should select (existing) receivers\nI won't forward your message to <NOONE>!")
     else:
         send_response(sender, f"All the following messages will be transmitted to: "
-                              f"{', '.join([r[0] for r in receivers])}\nto stop it type: stop_ ",key_v=1)
+                              f"{', '.join([r[0] for r in receivers])}\nto stop it type: stop_ ", key_v=1)
         thread = threading.Thread(target=transmission, args=(receivers,))
         thread.start()
+
 
 def transmission(receivers):
     global PART_OF_TRANSMISSION
@@ -53,12 +65,13 @@ def transmission(receivers):
     for event in longpoll.listen():
         if event.type == VkBotEventType.MESSAGE_NEW and event.from_chat and event.chat_id in PART_OF_TRANSMISSION:
             user_name = id_name[event.message['from_id']]
-            message = event.message['text'].replace("[club229115083|@club229115083]", '')
-            if message != event.message['text']:        # button was clicked
-                if message.strip().lower() == 'help':
-                    sender = event.chat_id
-                    print(sender)                   # THIS PRINT IS VERY IMPORTANT!!!
-                    help(key_v=1)
+            message = event.message['text'].replace("[club229115083|@you_pressed]", '').replace("[club229115083|@club229115083]", '') #!!
+            if message != event.message['text']:   #!!      # button was clicked
+                delete_message(event.chat_id, event.message["conversation_message_id"]) # not always works
+                if message.strip().lower() == 'help': #!!
+                    sender = event.chat_id #!!
+                    print(sender)            #!!        # THIS PRINT IS VERY IMPORTANT!!!
+                    help(key_v=1) #!!
                     continue
                 message += '_'
             if user_name == 'me':
@@ -91,8 +104,11 @@ def last():
     LAST_COMMANDS.get(
         sender, lambda: send_response(sender, "I am sorry, but I don't remember your last command... &#128533;"))()
 
+
+
 def start():
     send_response(sender, "I AM ALIVE!!!")
+
 def stop():
     send_response(sender, "What do you want me to stop? Your heart?")
 
@@ -188,7 +204,6 @@ COMMANDS = {
 
 
 
-
 if __name__ == '__main__':
     print("Start the session")
     vk_session = vk.VkApi(token=TOKEN)
@@ -201,13 +216,15 @@ if __name__ == '__main__':
             sender = event.chat_id
             if sender in PART_OF_TRANSMISSION:
                 continue
-            received_message = event.message["text"].replace("[club229115083|@club229115083]", '').split()
+            received_message = event.message["text"].replace("[club229115083|@you_pressed]", '').replace("[club229115083|@club229115083]", '') #!!
+            if received_message != event.message["text"]:   # not always works !
+                delete_message(sender, event.message["conversation_message_id"]) #!!
+            received_message = received_message.split()
             command = received_message[0].lower().strip()
             print(command)
             rest = received_message[1:]
             sender_id = event.message['from_id']
             print(event)
-            # vk_control.messages.delete(group_id=ID_BOT, peer_id=2000000000+sender, cmids=event.message["conversation_message_id"], delete_for_all=1)
             execute(COMMANDS.get(command, unknown_command), sender_id, *rest)
         else:
             print('UNKNOWN EVENT')

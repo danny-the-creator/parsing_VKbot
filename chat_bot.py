@@ -10,8 +10,9 @@ from config import TOKEN, ID_BOT, all_users, id_name
 from small_features.wiki_info import wiki_search
 from small_features.destiny import dice_roll, flip_coin, num_gen, destiny_decoder
 
-def send_response(sender, message):
-    vk_session.method("messages.send", {"chat_id": sender, "message": message, "random_id": get_random_id()})
+def send_response(sender, message, key_v=0):
+    keyboard = keyboard_ext() if key_v else keyboard_main()
+    vk_session.method("messages.send", {"chat_id": sender, "message": message, "random_id": get_random_id(), "keyboard": keyboard})
 def send_sticker(sender, id):
     vk_session.method("messages.send", {"chat_id": sender, "sticker_id": id, "random_id": get_random_id()})
 
@@ -19,6 +20,18 @@ def send_sticker(sender, id):
 PART_OF_TRANSMISSION = []
 LAST_COMMANDS = {}
 
+def keyboard_main():
+    """Setting up the Keyboard for most of the functions"""
+    keyboard = VkKeyboard()
+    keyboard.add_button('HELP', color=VkKeyboardColor.PRIMARY)
+    keyboard.add_button('LAST', color=VkKeyboardColor.POSITIVE)
+    return keyboard.get_keyboard()
+
+def keyboard_ext():
+    keyboard = VkKeyboard()
+    keyboard.add_button('HELP', color=VkKeyboardColor.PRIMARY)
+    keyboard.add_button('STOP', color=VkKeyboardColor.NEGATIVE)
+    return keyboard.get_keyboard()
 def forward(*args):
     receivers = []
     for receiver in args:
@@ -30,7 +43,7 @@ def forward(*args):
         send_response(sender, f"You should select (existing) receivers\nI won't forward your message to <NOONE>!")
     else:
         send_response(sender, f"All the following messages will be transmitted to: "
-                              f"{', '.join([r[0] for r in receivers])}\nto stop it type: stop_ ")
+                              f"{', '.join([r[0] for r in receivers])}\nto stop it type: stop_ ",key_v=1)
         thread = threading.Thread(target=transmission, args=(receivers,))
         thread.start()
 
@@ -40,19 +53,28 @@ def transmission(receivers):
     for event in longpoll.listen():
         if event.type == VkBotEventType.MESSAGE_NEW and event.from_chat and event.chat_id in PART_OF_TRANSMISSION:
             user_name = id_name[event.message['from_id']]
+            message = event.message['text'].replace("[club229115083|@club229115083]", '')
+            if message != event.message['text']:        # button was clicked
+                if message.strip().lower() == 'help':
+                    sender = event.chat_id
+                    print(sender)                   # THIS PRINT IS VERY IMPORTANT!!!
+                    help(key_v=1)
+                    continue
+                message += '_'
             if user_name == 'me':
-                if len(event.message['text']) > 4 and event.message['text'] == 'stop_':
+                if len(message) > 4 and message.strip().lower() == 'stop_':
                     send_response(all_users[user_name]['chat'], "End of transmission, ready to serve your orders, Commander!")
                     PART_OF_TRANSMISSION = []
                     break
                 for receiver in receivers:
-                    if receiver[1]:
-                        message = event.message['text']
-                    else:
-                        message = f'message from my overlord:\n\"{event.message["text"]}\"'
-                    send_response(all_users[receiver[0]]['chat'], message)
+                    if not receiver[1]:
+                        message = f'message from my overlord:\n\"{message}\"'
+                    send_response(all_users[receiver[0]]['chat'], message, key_v=1)
             if user_name in [r[0] for r in receivers]:
-                send_response(all_users['me']['chat'], f"{user_name} sends: \"{event.message['text']}\"")
+                if len(message) > 4 and message.strip().lower() == 'stop_':
+                    send_response(all_users[user_name]['chat'], f"Do you think you really can stop me, {user_name}")
+                    send_sticker(all_users[user_name]['chat'], 69384)
+                send_response(all_users['me']['chat'], f"{user_name} sends: \"{message}\"", key_v=1)
 
 
 def execute(func, user, *rest):
@@ -74,7 +96,7 @@ def start():
 def stop():
     send_response(sender, "What do you want me to stop? Your heart?")
 
-def help():
+def help(*args, key_v=0):
     HELP_MESSAGE = """
     Greetings Commander! 
     I am your personal assistant and I am ready to follow your orders!
@@ -97,7 +119,7 @@ def help():
 
     - any file/photo/video/audio will be downloaded and sorted
     """
-    send_response(sender, HELP_MESSAGE)
+    send_response(sender, HELP_MESSAGE, key_v=key_v)
 
 def wiki(query='nothing', *args):
     lang_codes = ['aa', 'ab', 'ae', 'af', 'ak', 'am', 'an', 'ar', 'as', 'av', 'ay', 'az', 'ba', 'be', 'bg', 'bh', 'bi',
@@ -171,6 +193,7 @@ if __name__ == '__main__':
     print("Start the session")
     vk_session = vk.VkApi(token=TOKEN)
     longpoll = VkBotLongPoll(vk_session, ID_BOT)
+    vk_control = vk_session.get_api()
     print("Bot is running...")
     for event in longpoll.listen():
         if event.type == VkBotEventType.MESSAGE_NEW and event.from_chat:
@@ -178,10 +201,13 @@ if __name__ == '__main__':
             sender = event.chat_id
             if sender in PART_OF_TRANSMISSION:
                 continue
-            received_message = event.message["text"].split()
+            received_message = event.message["text"].replace("[club229115083|@club229115083]", '').split()
             command = received_message[0].lower().strip()
+            print(command)
             rest = received_message[1:]
             sender_id = event.message['from_id']
+            print(event)
+            # vk_control.messages.delete(group_id=ID_BOT, peer_id=2000000000+sender, cmids=event.message["conversation_message_id"], delete_for_all=1)
             execute(COMMANDS.get(command, unknown_command), sender_id, *rest)
         else:
             print('UNKNOWN EVENT')

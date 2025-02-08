@@ -1,7 +1,7 @@
 import vk_api as vk
 from vk_api.utils import get_random_id
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
-from config import TOKEN, ID
+from config import TOKEN, ID_BOT
 from functools import partial
 
 from small_features.wiki_info import wiki_search
@@ -100,7 +100,7 @@ COMMANDS = {
 if __name__ == '__main__':
     print("Start the session")
     vk_session = vk.VkApi(token=TOKEN)
-    longpoll = VkBotLongPoll(vk_session, ID)
+    longpoll = VkBotLongPoll(vk_session, ID_BOT)
     print("Bot is running...")
     for event in longpoll.listen():
         if event.type == VkBotEventType.MESSAGE_NEW and event.from_chat:

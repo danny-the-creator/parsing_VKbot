@@ -1,10 +1,13 @@
 import re
+import itertools
 
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 import json
 import locale
+from googletrans import Translator
+
 from config import HEADERS
 
 # url = 'https://kamernet.nl/huren/huurwoningen-enschede?searchview=1&maxRent=8&minSize=2&radius=4&pageNo=1&sort=1'
@@ -22,6 +25,7 @@ class LM_Parser:
         self.dep_loc = dep_loc
         self.headers = None
         self.directory = '.'
+        self.translator = None
 
     def _safe_find(self, parent, *args):
         """Upgraded version of the bs find, which doesn't throw an error if it cannot find something"""
@@ -32,6 +36,10 @@ class LM_Parser:
         locale.setlocale(locale.LC_TIME, "Dutch_Netherlands")        # needed to translate Dutch months
         data = datetime.strptime(dep.split(" (")[0], "%d %b %Y")
         return int((data - datetime.now()).days) + 1
+    def _translate(self, text, src, dest):
+        if not self.translator:
+            self.translator = Translator()
+        return self.translator.translate(text, src=src, dest=dest).text
 
     def set_the_hottest(self, max_price, min_review, num_review=330, dep_in=2, tour_len=None, destination=None):
         self.max_price_hot = max_price
@@ -134,7 +142,44 @@ class LM_Parser:
         with open(f"{self.directory}/nice_deals.json", "w", encoding="utf-8") as file:
             json.dump(good_deals, file, indent=4, ensure_ascii=False)
 
+    def supp_tours(self, num):
+        """Fills N tours from json file with all the additional information"""
+        with open(f"{self.directory}/nice_deals.json", "r", encoding="utf-8") as file:
+            deals = json.load(file)
+        first_deals = dict(itertools.islice(deals.items(), num))
+        rest_deals = dict(itertools.islice(deals.items(), num, None))
 
+        for val in first_deals.values():
+            url = val.get('link')
+            req = requests.get(url, headers=self.headers)
+            src = req.text
+            soup = BeautifulSoup(src, 'lxml')
+            flight, weather=soup.find('div', class_='cor-acco-summary__fact-icons').find_all('li', limit=2)
+            flight = flight.text.strip()
+            weather = weather.text.split()[1]
+
+            description= soup.find('div', class_='cor-acco-short-description').text.split('\n')[0]
+            description = self._translate(description, 'nl', 'en')
+            location= soup.find('div', class_='acco-bullets left').find('ul').find_all('li')
+            location = self._translate('\n'.join([f"- {e.text}" for e in location]), 'nl', 'en')
+            activities=soup.find('div', class_='acco-bullets right').find_all('ul', style='margin-top: 0; margin-bottom: 20px;')[-1].find_all('li')
+            # print(activities)
+            activities = self._translate('\n'.join(['- ' + e.text.split("\n")[0] for e in activities]), 'nl', 'en')
+            # print(location)
+            # print(description)
+            # print(url)
+            print(activities)
+            val['flight'] = flight
+            val['weather'] = weather
+            val['location'] = location
+            val['activities'] = activities
+            val['description'] = description
+
+            print('--------------------------------------------------')
+        print(first_deals)
+        updated_deals = first_deals | rest_deals
+        with open(f"{self.directory}/nice_deals.json", "w", encoding="utf-8") as file:
+            json.dump(updated_deals, file, indent=4, ensure_ascii=False)
 
 
     def save_page(self):
@@ -153,7 +198,8 @@ class LM_Parser:
 if __name__ == '__main__':
     parser = LM_Parser(500, -1, num_review=-1, dep_in=1)
     parser.set_settings(directory='../data_storage/data', headers=HEADERS)
-    parser.parse()
+    # parser.parse()
+    parser.supp_tours(5)
     # print(parser.get_links())
     # parser.save_page('../data_storage/data')
     # print(parser.test())

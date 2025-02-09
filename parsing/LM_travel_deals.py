@@ -26,12 +26,59 @@ class LM_Parser:
         self.headers = None
         self.directory = '.'
         self.translator = None
+        self._hottest_set = False
+
+
+    def _save_html(self, src, index=''):
+        with open(f"{self.directory}/lm_tours_page{index}.html", "w", encoding="utf-8") as file:
+            file.write(src)
+
 
     def _safe_find(self, parent, *args):
         """Upgraded version of the bs find, which doesn't throw an error if it cannot find something"""
         for attribute in args:
-            parent = parent.find(attribute[0], class_=attribute[1]) if parent else None
+            if parent is None:
+                return None
+            parent = parent.find(attribute[0], class_=attribute[1])
         return parent
+    def _update_data(self, deal):
+        url = deal.get('link')
+        req = requests.get(url, headers=self.headers)
+        src = req.text
+        soup = BeautifulSoup(src, 'lxml')
+
+        flight = self._safe_find(soup, ('div', 'cor-acco-summary__fact-icons'), ('i', 'cor-icon icon-plane-up-right'))
+        flight = flight.find_parent().find('span').text.strip() if flight else '**:**'
+        weather = self._safe_find(soup, ('div', 'cor-acco-summary__fact-icons'), ('i', 'cor-icon icon-sun'))
+        weather = weather.find_parent().find('span').text.split()[1] if weather else '?°C'
+        # print(flight, weather)
+        description = soup.find('div', class_='cor-acco-short-description')
+        description = self._safe_find(description, ('p','')) if self._safe_find(description, ('p','')) else description
+        description = self._translate(description.text.strip(), 'nl', 'en') if description else "<not_defined>"
+        # print(description)
+
+        location = soup.find('div', class_='cor-acco-info__description')
+        try:
+            location = location.find_all(string=re.compile(r"Ligging"), limit=2)[-1].find_parent().find_next_sibling().text
+            location = self._translate('\n'.join([f"- {point}" for point in location.strip().split('\n')]), 'nl', 'en')
+        except (AttributeError, IndexError) as e:
+            location = "<not_defined>"
+        # print(location)
+
+        service = soup.find('div', class_='cor-acco-info__description')
+        try:
+            service = service.find_all(string=re.compile(r"Verzorging"), limit=2)[-1].find_parent().find_next_sibling().text
+            service = self._translate('\n'.join([f"- {point}" for point in service.strip().split('\n') if len(point.strip())!=0]), 'nl', 'en')
+        except (AttributeError, IndexError) as e:
+            service = "<not_defined>"
+        # print(service)
+
+        deal['flight'] = flight
+        deal['weather'] = weather
+        deal['location'] = location
+        deal['service'] = service
+        deal['description'] = description
+
     def _days_left(self, dep):
         locale.setlocale(locale.LC_TIME, "Dutch_Netherlands")        # needed to translate Dutch months
         data = datetime.strptime(dep.split(" (")[0], "%d %b %Y")
@@ -39,15 +86,21 @@ class LM_Parser:
     def _translate(self, text, src, dest):
         if not self.translator:
             self.translator = Translator()
-        return self.translator.translate(text, src=src, dest=dest).text
+        try:
+            return self.translator.translate(text, src=src, dest=dest).text
+        except AttributeError as e:
+            print(e)
+            return text
 
-    def set_the_hottest(self, max_price, min_review, num_review=330, dep_in=2, tour_len=None, destination=None):
+    def set_hottest(self, max_price, min_review, num_review=330, dep_in=2, tour_len=0, destination=None, dep_loc=None):
         self.max_price_hot = max_price
         self.min_review_hot = min_review
         self.num_review_hot = num_review
         self.dep_in_hot = dep_in
         self.tour_len_hot = tour_len
         self.destination_hot = destination
+        self.dep_loc_hot = dep_loc
+        self._hottest_set = True
 
     def set_settings(self, directory, headers=None):
         self.headers = headers
@@ -58,10 +111,11 @@ class LM_Parser:
         counter = 1
         while counter>0:
             url = self.url+str(counter)
-            # print(url)
             req = requests.get(url, headers=self.headers)
             src = req.text
-            # with open('../data_storage/data/amazon.html') as file:
+            # self._save_html(src, str(counter))
+
+            # with open(f'../data_storage/data/lm_tour_page{str(counter)}.html') as file:
             #     src = file.read()
 
             soup = BeautifulSoup(src, 'lxml')
@@ -97,9 +151,13 @@ class LM_Parser:
                 if price > self.max_price:                                        # ("data-stars-30" means 3 stars)
                     counter = -1
                     break
-                if review<self.min_review or review_num<self.num_review or dep_in<self.dep_in or tour_len<self.tour_len:
-                    continue
-                if self.dep_loc and dep_location not in self.dep_loc:
+                if any([
+                    review < self.min_review,
+                    review_num < self.num_review,
+                    dep_in < self.dep_in,
+                    tour_len < self.tour_len,
+                    self.dep_loc and dep_location not in self.dep_loc
+                ]):
                     continue
                 lm_tour = {
                     'name': name,
@@ -110,14 +168,14 @@ class LM_Parser:
                     'price': price,
                     'review': review,
                     'quantity': review_num,
-                    'time_left': dep_in,
+                    'days_left': dep_in,
                     'tour_length': tour_len,
 
                     'flight': None,
                     'weather': None,
                     'description': None,
                     'location': None,
-                    'activities': None,
+                    'service': None,
 
                     'link': link
 
@@ -134,63 +192,48 @@ class LM_Parser:
                 # print(dep_in, tour_len, dep_location)
                 # print(link)
                 # print('------------------------------------------------------------------------------------')
-            # print(all_tours)
-            # break
             print(counter)
             counter+=1
-            # print(good_deals)
         with open(f"{self.directory}/nice_deals.json", "w", encoding="utf-8") as file:
             json.dump(good_deals, file, indent=4, ensure_ascii=False)
 
-    def supp_tours(self, num):
+    def fill_tours(self, num):
         """Fills N tours from json file with all the additional information"""
         with open(f"{self.directory}/nice_deals.json", "r", encoding="utf-8") as file:
             deals = json.load(file)
         first_deals = dict(itertools.islice(deals.items(), num))
         rest_deals = dict(itertools.islice(deals.items(), num, None))
-
         for val in first_deals.values():
-            url = val.get('link')
-            req = requests.get(url, headers=self.headers)
-            src = req.text
-            soup = BeautifulSoup(src, 'lxml')
-            flight, weather=soup.find('div', class_='cor-acco-summary__fact-icons').find_all('li', limit=2)
-            flight = flight.text.strip()
-            weather = weather.text.split()[1]
+            self._update_data(val)
 
-            description= soup.find('div', class_='cor-acco-short-description').text.split('\n')[0]
-            description = self._translate(description, 'nl', 'en')
-            location= soup.find('div', class_='acco-bullets left').find('ul').find_all('li')
-            location = self._translate('\n'.join([f"- {e.text}" for e in location]), 'nl', 'en')
-            activities=soup.find('div', class_='acco-bullets right').find_all('ul', style='margin-top: 0; margin-bottom: 20px;')[-1].find_all('li')
-            # print(activities)
-            activities = self._translate('\n'.join(['- ' + e.text.split("\n")[0] for e in activities]), 'nl', 'en')
-            # print(location)
-            # print(description)
-            # print(url)
-            print(activities)
-            val['flight'] = flight
-            val['weather'] = weather
-            val['location'] = location
-            val['activities'] = activities
-            val['description'] = description
-
-            print('--------------------------------------------------')
-        print(first_deals)
+        # print(first_deals)
         updated_deals = first_deals | rest_deals
         with open(f"{self.directory}/nice_deals.json", "w", encoding="utf-8") as file:
             json.dump(updated_deals, file, indent=4, ensure_ascii=False)
 
+    def fill_hottest(self):
+        if not self._hottest_set:
+            raise AttributeError("You need to set filter for the hottest deals. Call 'set_hottest'!")
+        hottest_deals = {}
+        with open(f"{self.directory}/nice_deals.json", "r", encoding="utf-8") as file:
+            deals = json.load(file)
+        for deal in deals.values():
+            if any((
+                self.max_price_hot < deal['price'],
+                self.tour_len_hot > deal['tour_length'],
+                self.min_review_hot > deal['review'],
+                self.dep_in_hot > deal['days_left'],
+                self.num_review_hot > deal['quantity'],
+                (self.destination_hot and deal['country'] in self.destination_hot),
+                (self.dep_loc_hot and deal['departure'] in self.dep_loc_hot)
+            )):
+                continue
+            if not any((deal['flight'], deal['weather'], deal['description'], deal['location'], deal['service'])):
+                self._update_data(deal)
+            hottest_deals[deal['name']] = deal
 
-    def save_page(self):
-        # print(self.req.text)
-        with open(self.directory+'/amazon.html', 'w', encoding='utf-8') as file:
-            file.write(self.req.text)
-
-    def get_links(self):
-        links = [div.find('a').get('href') for div in self.soup.find_all("div", class_="h1 cor-heading--branded")]
-        # print(links)
-        return "\n".join([link.split('#[filters]')[0] for link in links])
+        with open(f"{self.directory}/hottest_deals.json", "w", encoding="utf-8") as file:
+            json.dump(hottest_deals, file, indent=4, ensure_ascii=False)
 
     def test(self):
         pass
@@ -198,8 +241,11 @@ class LM_Parser:
 if __name__ == '__main__':
     parser = LM_Parser(500, -1, num_review=-1, dep_in=1)
     parser.set_settings(directory='../data_storage/data', headers=HEADERS)
+    # parser.set_hottest(max_price=500, min_review=8, num_review=300, dep_in=0)
+    # parser.fill_hottest()
     # parser.parse()
-    parser.supp_tours(5)
-    # print(parser.get_links())
-    # parser.save_page('../data_storage/data')
+    # parser.fill_tours(25)
     # print(parser.test())
+
+
+

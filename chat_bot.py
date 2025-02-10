@@ -1,11 +1,13 @@
 import vk_api as vk
 from vk_api.utils import get_random_id
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
-from config import TOKEN, ID_BOT
+from config import TOKEN, ID_BOT, HEADERS
 from functools import partial
 
 from small_features.wiki_info import wiki_search
 from small_features.destiny import dice_roll, flip_coin, num_gen, destiny_decoder
+
+from parsing.LM_travel_deals import LM_Parser
 
 def send_response(sender, message):
     vk_session.method("messages.send", {"chat_id": sender, "message": message, "random_id": get_random_id()})
@@ -55,6 +57,12 @@ def wiki(query='nothing', *args):
         send_sticker(sender, 69407)
 
 
+
+def lm_travel(num):
+    for message in parser.prepare_message(int(num)):
+        send_response(sender, message)
+
+
 def dice():
     send_response(sender,f"You got: {dice_roll()}")
 
@@ -86,7 +94,7 @@ COMMANDS = {
     'forward': partial(stopper, 'forward'),
     'finish_reminder': partial(stopper, 'finish_reminder'),
     'wiki': wiki,
-    'lm_travel': partial(stopper, 'lm_travel'),
+    'lm_travel': lm_travel,
 
     'dice': dice,
     'coin': coin,
@@ -98,6 +106,11 @@ COMMANDS = {
 
 
 if __name__ == '__main__':
+
+    parser = LM_Parser(500, -1, num_review=-1, dep_in=1)
+    parser.set_settings(directory='./data_storage/data', headers=HEADERS)
+    parser.set_hottest(max_price=500, min_review=8, num_review=350, dep_in=0)
+
     print("Start the session")
     vk_session = vk.VkApi(token=TOKEN)
     longpoll = VkBotLongPoll(vk_session, ID_BOT)

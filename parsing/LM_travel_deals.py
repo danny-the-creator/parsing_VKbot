@@ -121,6 +121,8 @@ class LM_Parser:
             soup = BeautifulSoup(src, 'lxml')
 
             all_tours = soup.find_all('article', class_='cor-sr-item')
+            if len(all_tours) == 0:
+                break
             for tour in all_tours:
                 tour_info = tour.find('div', class_="cor-sr-item__main row")
 
@@ -203,8 +205,14 @@ class LM_Parser:
             deals = json.load(file)
         first_deals = dict(itertools.islice(deals.items(), num))
         rest_deals = dict(itertools.islice(deals.items(), num, None))
-        for val in first_deals.values():
-            self._update_data(val)
+        for deal in first_deals.values():
+            if not any((
+                    deal['flight'],
+                    deal['weather'],
+                    deal['location'],
+                    deal['service'] ,
+                    deal['description'])):
+                self._update_data(deal)
 
         # print(first_deals)
         updated_deals = first_deals | rest_deals
@@ -235,16 +243,70 @@ class LM_Parser:
         with open(f"{self.directory}/hottest_deals.json", "w", encoding="utf-8") as file:
             json.dump(hottest_deals, file, indent=4, ensure_ascii=False)
 
+    def prepare_message(self, num):
+        with open(f"{self.directory}/hottest_deals.json", "r", encoding="utf-8") as file:
+            hot_deals = json.load(file)
+        hot_deals = dict(itertools.islice(hot_deals.items(), num))
+
+        deal_str ="""My Sir, I’ve processed your request.  
+Here’s the most promising option for your next adventure:  
+
+🏨 **Accommodation:** {} ({})  
+📍 **Destination:** {} — currently enjoying **{}**.  
+⭐ Rated **{}/10**, based on **{} reviews**.
+
+🛫 Your journey starts from **{}**, with **{} days** of relaxation and exploration ahead.
+⏳ Attention, only {} days left. After that, this opportunity will be archived... permanently.
+
+📌 **Location Highlights:**  
+{}  
+
+🍴 **Offered Services:**  
+{}  
+
+As always, I remain at your service. Just say the word, and the world will be min... I mean yours. 😅
+"""
+
+        hot_deal_str = "!!! ATTENTION VERY HOT DEAL 🥵🔥 !!!\n\n" + deal_str
+        hot_deals_messages = [hot_deal_str.format(
+            deal['name'], deal['stars'], deal['country'], deal['weather'], deal['review'], deal['quantity'],
+            deal['departure'], deal['tour_length'], deal['days_left'], deal['location'], deal['service']
+        ) for deal in hot_deals.values()]
+
+        reg_deals_num = num - len(hot_deals)
+        if reg_deals_num < 1:
+            return hot_deals_messages
+        with open(f"{self.directory}/nice_deals.json", "r", encoding="utf-8") as file:
+            reg_deals = json.load(file)
+        # self.fill_tours(num)          probably not needed
+        rest_deals = {}
+        for k, v in reg_deals.items():
+            if k not in hot_deals:
+                rest_deals[k] = v
+                if len(rest_deals) >= reg_deals_num:
+                    break
+        reg_deals_messages = [deal_str.format(
+            deal['name'], deal['stars'], deal['country'], deal['weather'], deal['review'], deal['quantity'],
+            deal['departure'], deal['tour_length'], deal['days_left'], deal['location'], deal['service']
+        ) for deal in rest_deals.values()]
+
+        return hot_deals_messages + reg_deals_messages
+
+
+
     def test(self):
         pass
 
 if __name__ == '__main__':
     parser = LM_Parser(500, -1, num_review=-1, dep_in=1)
     parser.set_settings(directory='../data_storage/data', headers=HEADERS)
-    # parser.set_hottest(max_price=500, min_review=8, num_review=300, dep_in=0)
+    parser.set_hottest(max_price=500, min_review=8, num_review=350, dep_in=0)
     # parser.fill_hottest()
     # parser.parse()
-    # parser.fill_tours(25)
+    # parser.fill_tours(30)
+    # print(len(parser.prepare_message(10)))
+    # for i in parser.prepare_message(10):
+    #     print(i)
     # print(parser.test())
 
 

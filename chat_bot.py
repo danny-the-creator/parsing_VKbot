@@ -59,6 +59,10 @@ def wiki(query='nothing', *args):
 
 
 def lm_travel(num):
+    if parser.update_needed(hours=4):
+        parser.parse()
+        parser.fill_hottest()
+    parser.fill_tours(int(num))
     for message in parser.prepare_message(int(num)):
         send_response(sender, message)
 

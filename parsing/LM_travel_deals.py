@@ -3,7 +3,7 @@ import itertools
 
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import locale
 from googletrans import Translator
@@ -23,10 +23,14 @@ class LM_Parser:
         self.num_review = num_review
         self.tour_len = tour_len
         self.dep_loc = dep_loc
-        self.headers = None
+
+
         self.directory = '.'
-        self.translator = None
+        self.headers = None
+        self._translator = None
         self._hottest_set = False
+        self._last_parse = None
+
 
 
     def _save_html(self, src, index=''):
@@ -84,10 +88,10 @@ class LM_Parser:
         data = datetime.strptime(dep.split(" (")[0], "%d %b %Y")
         return int((data - datetime.now()).days) + 1
     def _translate(self, text, src, dest):
-        if not self.translator:
-            self.translator = Translator()
+        if not self._translator:
+            self._translator = Translator()
         try:
-            return self.translator.translate(text, src=src, dest=dest).text
+            return self._translator.translate(text, src=src, dest=dest).text
         except AttributeError as e:
             print(e)
             return text
@@ -107,6 +111,7 @@ class LM_Parser:
         self.directory = directory
 
     def parse(self):
+        self._last_parse = datetime.now()
         good_deals = {}
         counter = 1
         while counter>0:
@@ -240,6 +245,9 @@ class LM_Parser:
                 self._update_data(deal)
             hottest_deals[deal['name']] = deal
 
+        with open(f"{self.directory}/nice_deals.json", "w", encoding="utf-8") as file:
+            json.dump(deals, file, indent=4, ensure_ascii=False)    # needed to avoid double work
+
         with open(f"{self.directory}/hottest_deals.json", "w", encoding="utf-8") as file:
             json.dump(hottest_deals, file, indent=4, ensure_ascii=False)
 
@@ -292,7 +300,10 @@ As always, I remain at your service. Just say the word, and the world will be mi
 
         return hot_deals_messages + reg_deals_messages
 
-
+    def update_needed(self, hours):
+        if self._last_parse is None or (datetime.now() - self._last_parse) > timedelta(hours=hours):
+            return True
+        return False
 
     def test(self):
         pass

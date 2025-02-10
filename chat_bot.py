@@ -1,7 +1,7 @@
 import vk_api as vk
 from vk_api.utils import get_random_id
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
-from config import TOKEN, ID, GET_TOK, VK_VER
+from config import TOKEN, ID_BOT, GET_TOK, VK_VER
 from functools import partial
 from itertools import chain
 
@@ -49,9 +49,51 @@ def unknown_command():
     send_response(sender, "what is my purpose?")
 
 
+def download(attachment):
+    def inner_handle_photo():
+        print('photo')
+        url = attachment['photo']['orig_photo']['url']
+        down_smart(url, ext='jpg')
+
+    def inner_handle_video():
+        print('video')
+        send_response(sender, "My Lord, the quality of this video is unworthy of you.\n"
+                              "I beg you, send it as a file to protect its brilliance. ✨")
+
+    def inner_handle_audio_message():
+        if attachment['audio_message'].get('transcript_state') in ('in_progress', None):
+            return  # Skip if still in progress
+        print('audio_message')
+
+        url = attachment['audio_message']['link_ogg']
+        down_smart(url, ext='mp3')
+        send_response(sender, "Your voice message is saved!")
+
+    def inner_handle_doc():
+        print('doc')
+        url = attachment['doc']['url']
+        ext = attachment['doc']['ext'].replace('tui', 'mp3')
+        down_smart(url, ext)
+        send_response(sender, f"I got your <{ext}> file 😊")
+
+    def inner_handle_unknown():
+        print('UNKNOWN')
+        send_response(sender, "I don't support that kind of input...")
+        send_sticker(sender, 69407)
+
+    handlers = {
+        'photo': inner_handle_photo,
+        'video': inner_handle_video,
+        'audio_message': inner_handle_audio_message,
+        'doc': inner_handle_doc,
+    }
+    print(sender)
+    handlers.get(attachment.get('type'), inner_handle_unknown)()
+
+
 def stopper(command):
     send_response(sender, f"Did you mean <{command}> ? \nThen I cannot help you :<")
-    # the way to send a sticker, if you want to send emodji use this in your message: &#000000; (id)
+    # the way to send a sticker, if you want to send emoji use this in your message: &#000000; (id)
     send_sticker(sender, 69407)
 
 COMMANDS = {
@@ -77,58 +119,22 @@ COMMANDS = {
 if __name__ == '__main__':
     print("Start the session")
     vk_session = vk.VkApi(token=TOKEN)
-    longpoll = VkBotLongPoll(vk_session, ID)
+    longpoll = VkBotLongPoll(vk_session, ID_BOT)
     print("Bot is running...")
     for event in longpoll.listen():
-        # print(event.message['text'])
-        # print(event.message)
-        print('---------------------------------------------------------')
-        # print(event.message['attachments'])
-        # print(event.message.get('reply_message'))           # ignore
         if event.type == VkBotEventType.MESSAGE_NEW and event.from_chat:
             attachments = event.message["attachments"] + list(chain(*[m.get("attachments", []) for m in event.message['fwd_messages']]))
+            sender = event.chat_id
             if not attachments:
                 print("New Message")
                 received_message = event.message["text"]
                 command = received_message.split()[0].lower().strip()
-                sender = event.chat_id
                 # print(sender)
                 COMMANDS.get(command, unknown_command)()
             else:
-                print(attachments)
-                print('---------------------')
+                # print(attachments)
                 for att in attachments:
-                    if att.get('type') == 'photo':
-                        print('photo')
-                        url = att['photo']['orig_photo']['url']
-                        down_smart(url, ext='jpg')
-                        # print(f"url: {url}")
-                    elif att.get('type') == 'video':
-                        # id owner_id access_key
-                        video_get_url = f"https://api.vk.com/method/video.get?videos={att['video']['owner_id']}_{att['video']['id']}_{att['video']['access_key']}&access_token={GET_TOK}&v={VK_VER}"
-                        video_get_url = f"https://api.vk.com/method/account.getAppPermissions?access_token={GET_TOK}&v=5.199"
-                        # video_get_url = f"https://api.vk.com/method/video.get?videos=587938956_456239151_15293b0db2d712b64f&access_token={GET_TOK}&v=5.199"
-                        req = requests.get(video_get_url)
-                        print(req.json())
-                        print('video')
-                        print(f"access_key: {att['video']['track_code']}")
-                    elif att.get('type') == 'doc':
-                        print('doc')
-                        url = att['doc']['url']
-                        ext = att['doc']['ext'].replace('tui', 'mp3')     # VK can not send 'mp3', so I rename them into
-                                                                    # 'tui' when I send them and convert them back here
-                        down_smart(url, ext)
-                        # print(f"url: {url}")
-                        # print(f"ext: {ext}")
-                    elif att.get('type') == 'audio_message':
-                        if att['audio_message']['transcript_state'] == 'in_progress':
-                            continue
-                        print('audio_message')
-                        url = att['audio_message']['link_ogg']
-                        down_smart(url, ext='mp3')
-                        # print(f"url: {url}")
-                    else:
-                        print('UNKNOWN')
+                    download(att)
 
         else:
             print('UNKNOWN EVENT')

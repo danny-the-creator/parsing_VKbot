@@ -76,11 +76,11 @@ def unknown_command():
     send_response(sender, "what is my purpose?")
 
 
-def download(attachment):
+def download(attachment, imp=None):
     def inner_handle_photo():
         print('photo')
         url = attachment['photo']['orig_photo']['url']
-        down_smart(url, ext='jpg')
+        down_smart(url, ext='jpg', imp=imp)
 
     def inner_handle_video():
         print('video')
@@ -93,14 +93,14 @@ def download(attachment):
         print('audio_message')
 
         url = attachment['audio_message']['link_ogg']
-        down_smart(url, ext='mp3')
+        down_smart(url, ext='mp3', imp=imp)
         send_response(sender, "Your voice message is saved!")
 
     def inner_handle_doc():
         print('doc')
         url = attachment['doc']['url']
         ext = attachment['doc']['ext'].replace('tui', 'mp3')
-        down_smart(url, ext)
+        down_smart(url, ext=ext, imp=imp)
         send_response(sender, f"I got your <{ext}> file 😊")
 
     def inner_handle_unknown():
@@ -162,9 +162,9 @@ if __name__ == '__main__':
                 # print(sender)
                 COMMANDS.get(command, unknown_command)(*rest)
             else:
-                # print(attachments)
+                important = event.message["text"][2:] if event.message["text"][:2] == '-i' else None
                 for att in attachments:
-                    download(att)
+                    download(att, imp=important)
 
         else:
             print('UNKNOWN EVENT')

@@ -28,13 +28,17 @@ def help():
     Please type:
     - help : To get this list again 
     - info : Get your day-to-day information
-    - add_task : every message after this command will appear in to-do list
-    - stop : Stops the current process and returns to the main functionality
-    - list : to show all of your tasks 
     - forward <ID_1 ID_2 ID_3> : after that all the messages will be send to the indicated receiver's IDs
+    - stop : Stops the current process and returns to the main functionality
     - finish_reminder <number> : mark the reminder as done and stops reminding about it
     - wiki <your statement> : To get info about your statement from wiki
     - LM_travel : gives you several decent links about LM_travel
+    
+    - list : to show all of your tasks 
+    - add_task <message>: the message will appear in your to-do list
+    - del_task <id>: removes the task under the corresponding number
+    - upd_task <id>: increases the progress of the selected task
+    
 
     - dice : roles a dice for you
     - coin : flips a coin for you
@@ -122,16 +126,19 @@ def stopper(command):
     send_response(sender, f"Did you mean <{command}> ? \nThen I cannot help you :<")
     # the way to send a sticker, if you want to send emoji use this in your message: &#000000; (id)
     send_sticker(sender, 69407)
-
 COMMANDS = {
     'start': start,
     'help': help,
     'info': partial(stopper, 'info'),
     'stop': partial(stopper, 'stop'),
+
     'list': partial(stopper, 'list'),
     'add_task': partial(stopper, 'add_task'),
-    'forward': partial(stopper, 'forward'),
+    'del_task': partial(stopper, 'del_task'),
+    'upd_task': partial(stopper, 'upd_task'),
+
     'finish_reminder': partial(stopper, 'finish_reminder'),
+    'forward': partial(stopper, 'forward'),
     'wiki': wiki,
     'lm_travel': partial(stopper, 'lm_travel'),
 
@@ -140,6 +147,7 @@ COMMANDS = {
     'magic_advice': magic_advice,
     'rand': rand
 }
+
 
 
 

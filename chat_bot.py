@@ -4,7 +4,6 @@ from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 
 import re
-import requests
 import threading
 from functools import partial
 from itertools import chain
@@ -15,7 +14,39 @@ from data_storage.smart_download import down_smart
 from parsing.LM_travel_deals import LM_Parser
 from data_storage.to_do_list import get_to_do, get_to_do_important, upgrade_task_progress, add_new_task, remove_task
 
-from config import TOKEN, ID_BOT, HEADERS, all_users, id_name
+from config import TOKEN, ID_BOT, HEADERS, all_users, id_name, chat_name
+
+
+# GLOBALS (bad)
+PART_OF_TRANSMISSION = []
+LAST_COMMANDS = {}
+
+HELP_MESSAGE = """
+    Greetings Commander! 
+    I am your personal assistant and I am ready to follow your orders!
+    At least orders from the list below...
+    Please type:
+    - help : To get this list again 
+    - info : Get your day-to-day information
+    - forward <ID_1 ID_2 ID_3> : after that all the messages will be send to the indicated receiver's IDs
+    - stop_ : Stops the current process and returns to the main functionality
+    - finish_reminder <number> : mark the reminder as done and stops reminding about it
+    - wiki <your statement> : To get info about your statement from wiki
+    - LM_travel : gives you several decent links about LM_travel
+
+    - task : to show all of your tasks 
+    - add_task <message>: the message will appear in your to-do list
+    - del_task <id>: removes the task under the corresponding number
+    - upd_task <id>: increases the progress of the selected task
+
+    - dice : roles a dice for you
+    - coin : flips a coin for you
+    - magic_advice : tells you the destiny
+    - rand <number> : returns you random number in range
+
+    - any file/photo/video/audio will be downloaded and sorted
+    """
+
 
 def send_response(sender, message, key_v=0):
     keyboard = keyboard_ext() if key_v else keyboard_main()
@@ -25,15 +56,8 @@ def send_response(sender, message, key_v=0):
 def send_sticker(sender, id):
     vk_session.method("messages.send", {"chat_id": sender, "sticker_id": id, "random_id": get_random_id()})
 
-
-def delete_message(sender, message_id): #!!
+def delete_message(sender, message_id):     # !! Works a bit strange, probably will be easier to delete it
     vk_control.messages.delete(group_id=ID_BOT, peer_id=2000000000+sender, cmids=message_id, delete_for_all=1)
-
-
-# GLOBALS (bad)
-PART_OF_TRANSMISSION = []
-LAST_COMMANDS = {}
-
 
 
 def keyboard_main():
@@ -44,57 +68,68 @@ def keyboard_main():
     return keyboard.get_keyboard()
 
 def keyboard_ext():
+    """Setting up the Keyboard during the retransmission"""
     keyboard = VkKeyboard()
     keyboard.add_button('HELP', color=VkKeyboardColor.PRIMARY)
     keyboard.add_button('STOP', color=VkKeyboardColor.NEGATIVE)
     return keyboard.get_keyboard()
 
 
-
 def forward(*args):
     receivers = []
     for receiver in args:
         receiver = receiver.replace(',', '').lower().strip()
+
         if receiver.replace('-', '') in all_users.keys():
             hidden = True if receiver[-1] == '-' else False
             receivers.append((receiver.replace('-', ''), hidden))
-    if receivers == []:
+
+    if not receivers:
         send_response(sender, f"You should select (existing) receivers\nI won't forward your message to <NOONE>!")
     else:
         send_response(sender, f"All the following messages will be transmitted to: "
                               f"{', '.join([r[0] for r in receivers])}\nto stop it type: stop_ ", key_v=1)
+
         thread = threading.Thread(target=transmission, args=(receivers,))
         thread.start()
 
 
 def transmission(receivers):
-    global PART_OF_TRANSMISSION
+    global PART_OF_TRANSMISSION         # !! very bad
+
+    def inner_handle_stop_command(name):
+        if name == 'me':
+            send_response(all_users[name]['chat'], "End of transmission, ready to serve your orders, Commander!")
+            return True
+        send_response(all_users[name]['chat'], f"Do you think you really can stop me, {name}?")
+        send_sticker(all_users[name]['chat'], 69384)
+
     PART_OF_TRANSMISSION = [all_users[r[0]]['chat'] for r in receivers] + [all_users['me']['chat']]
+
     for event in longpoll.listen():
         if event.type == VkBotEventType.MESSAGE_NEW and event.from_chat and event.chat_id in PART_OF_TRANSMISSION:
             user_name = id_name[event.message['from_id']]
             message = event.message['text'].replace("[club229115083|@you_pressed]", '')
-            if message != event.message['text']:   #!!      # button was clicked
-                delete_message(event.chat_id, event.message["conversation_message_id"]) # not always works
-                if message.strip().lower() == 'help': #!!
-                    sender = event.chat_id #!!
-                    print(sender)            #!!        # THIS PRINT IS VERY IMPORTANT!!!
-                    help(key_v=1) #!!
+
+            if message != event.message['text']:         # button was clicked
+                delete_message(event.chat_id, event.message["conversation_message_id"])     # not always works
+                if message.strip().lower() == 'help':
+                    send_response(event.chat_id, HELP_MESSAGE, key_v=1)
                     continue
-                message += '_'
-            if user_name == 'me':
-                if len(message) > 4 and message.strip().lower() == 'stop_':
-                    send_response(all_users[user_name]['chat'], "End of transmission, ready to serve your orders, Commander!")
+                message += '_'      # in order to get stop_
+
+
+            if message.strip().lower() == 'stop_':
+                if inner_handle_stop_command(user_name):
                     PART_OF_TRANSMISSION = []
                     break
+                continue
+
+            if user_name == 'me':
                 for receiver in receivers:
-                    if not receiver[1]:
-                        message = f'message from my overlord:\n\"{message}\"'
+                    message = message if receiver[1] else f'message from my overlord:\n\"{message}\"'
                     send_response(all_users[receiver[0]]['chat'], message, key_v=1)
-            if user_name in [r[0] for r in receivers]:
-                if len(message) > 4 and message.strip().lower() == 'stop_':
-                    send_response(all_users[user_name]['chat'], f"Do you think you really can stop me, {user_name}")
-                    send_sticker(all_users[user_name]['chat'], 69384)
+            elif user_name in [r[0] for r in receivers]:
                 send_response(all_users['me']['chat'], f"{user_name} sends: \"{message}\"", key_v=1)
 
 
@@ -122,33 +157,8 @@ def stop():
     send_response(sender, "What do you want me to stop? Your heart?")
     send_sticker(sender, 69391)
 
-def help(*args, key_v=0):
-    HELP_MESSAGE = """
-    Greetings Commander! 
-    I am your personal assistant and I am ready to follow your orders!
-    At least orders from the list below...
-    Please type:
-    - help : To get this list again 
-    - info : Get your day-to-day information
-    - forward <ID_1 ID_2 ID_3> : after that all the messages will be send to the indicated receiver's IDs
-    - stop_ : Stops the current process and returns to the main functionality
-    - finish_reminder <number> : mark the reminder as done and stops reminding about it
-    - wiki <your statement> : To get info about your statement from wiki
-    - LM_travel : gives you several decent links about LM_travel
-    
-    - task : to show all of your tasks 
-    - add_task <message>: the message will appear in your to-do list
-    - del_task <id>: removes the task under the corresponding number
-    - upd_task <id>: increases the progress of the selected task
-
-    - dice : roles a dice for you
-    - coin : flips a coin for you
-    - magic_advice : tells you the destiny
-    - rand <number> : returns you random number in range
-
-    - any file/photo/video/audio will be downloaded and sorted
-    """
-    send_response(sender, HELP_MESSAGE, key_v=key_v)
+def help():
+    send_response(sender, HELP_MESSAGE)
 
 def wiki(query='nothing', *args):
     lang_codes = ['aa', 'ab', 'ae', 'af', 'ak', 'am', 'an', 'ar', 'as', 'av', 'ay', 'az', 'ba', 'be', 'bg', 'bh', 'bi',
@@ -183,6 +193,7 @@ def lm_travel(num):
 
 
 def task():
+    user = all_users[chat_name[sender]]['id']
     message = get_to_do(user)
     if not message:
         send_response(sender, "You don't have anything in your To-Do list, lucky you...")
@@ -191,6 +202,7 @@ def task():
 
 def add_task(*args):
     commands = ''       # if the command is '', extract commands return None value
+    user = all_users[chat_name[sender]]['id']
 
     def inner_extract_command(pattern, commands):
         match = re.search(pattern, commands)
@@ -220,6 +232,7 @@ def add_task(*args):
     send_response(sender, "Task added... Optimizing your path to success ⚙")
 
 def del_task(task_id):
+    user = all_users[chat_name[sender]]['id']
     if not remove_task(user, int(task_id)):
         send_response(sender, "You cannot delete the task which doesn't exist! ")
         return
@@ -227,6 +240,7 @@ def del_task(task_id):
     send_sticker(sender, 69418)
 
 def upd_task(task_id):
+    user = all_users[chat_name[sender]]['id']
     if not upgrade_task_progress(user, int(task_id)):
         send_response(sender, "I don't know which task are you talking about?")
         send_sticker(sender, 69414)
@@ -304,7 +318,7 @@ COMMANDS = {
     'help': help,
     'info': stopper,
     'forward': forward,
-    'stop': stop,
+    'stop_': stop,
     'finish_reminder': stopper,
     'wiki': wiki,
     'lm_travel': lm_travel,
@@ -334,15 +348,17 @@ if __name__ == '__main__':
     longpoll = VkBotLongPoll(vk_session, ID_BOT)
     vk_control = vk_session.get_api()
     print("Bot is running...")
+
     for event in longpoll.listen():
         if event.type == VkBotEventType.MESSAGE_NEW and event.from_chat:
             attachments = event.message["attachments"] + list(chain(*[m.get("attachments", []) for m in event.message['fwd_messages']]))
             sender = event.chat_id
+            sender_id = event.message['from_id']
             if not attachments:
                 print("New Message")
-
                 if sender in PART_OF_TRANSMISSION:
                     continue
+
                 received_message = event.message["text"].replace("[club229115083|@you_pressed]", '')
                 if received_message != event.message["text"]:  # not always works !
                     delete_message(sender, event.message["conversation_message_id"])  # !!
@@ -350,10 +366,10 @@ if __name__ == '__main__':
                 received_message = received_message.split()
                 command = received_message[0].lower().strip()
                 rest = received_message[1:]
-                sender_id = event.message['from_id']
 
                 execute(COMMANDS.get(command, unknown_command), sender_id, *rest)
-            else:
+            elif all_users['me']['id'] == sender_id:
+                # Check if the person is not me
                 important = event.message["text"][2:] if event.message["text"][:2] == '-i' else None
                 for att in attachments:
                     download(att, imp=important)

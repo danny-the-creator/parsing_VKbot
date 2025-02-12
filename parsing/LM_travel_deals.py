@@ -319,12 +319,15 @@ Here’s the most promising option for your next adventure:
 {}  
 
 As always, I remain at your service. Just say the word, and the world will be min... I mean yours. 😅
+
+Psss... if you want to know more about this deal, just click here: 
+{}
 """
 
         hot_deal_str = "!!! ATTENTION VERY HOT DEAL 🥵🔥 !!!\n\n" + deal_str
         hot_deals_messages = [hot_deal_str.format(
             deal['name'], deal['stars'], deal['country'], deal['weather'], deal['review'], deal['quantity'],
-            deal['departure'], deal['tour_length'], deal['days_left'], deal['location'], deal['service']
+            deal['departure'], deal['tour_length'], deal['days_left'], deal['location'], deal['service'], deal['link']
         ) for deal in hot_deals.values()]
 
         reg_deals_num = num - len(hot_deals)
@@ -343,7 +346,7 @@ As always, I remain at your service. Just say the word, and the world will be mi
 
         reg_deals_messages = [deal_str.format(
             deal['name'], deal['stars'], deal['country'], deal['weather'], deal['review'], deal['quantity'],
-            deal['departure'], deal['tour_length'], deal['days_left'], deal['location'], deal['service']
+            deal['departure'], deal['tour_length'], deal['days_left'], deal['location'], deal['service'], deal['link']
         ) for deal in rest_deals.values()]
 
         return hot_deals_messages + reg_deals_messages

@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime, timedelta
 
 from config import PLANNER_PATH
@@ -23,7 +24,7 @@ TASK_STYLE = "{num}. {text}\n" \
 
 
 def get_to_do(person_id):
-    with open(f"{PLANNER_PATH}/to_do.json", "r") as file:
+    with open(f"{PLANNER_PATH}/to_do.json", "r", encoding='utf-8') as file:
         all_planners = json.load(file)
 
     planner = all_planners.get(str(person_id))
@@ -63,7 +64,7 @@ def get_to_do(person_id):
 
 
 def get_to_do_important(person_id):
-    with open(f"{PLANNER_PATH}/to_do.json", "r") as file:
+    with open(f"{PLANNER_PATH}/to_do.json", "r", encoding='utf-8') as file:
         all_planners = json.load(file)
 
     planner = all_planners.get(str(person_id))
@@ -103,7 +104,7 @@ def get_to_do_important(person_id):
 {close_date_str}"""
 
 
-def add_task(person_id, text, topic=None, date=None, progress=None, imp=False):
+def add_new_task(person_id, text, topic=None, date=None, progress=None, imp=False):
     with open(f"{PLANNER_PATH}/to_do.json", "r", encoding='utf-8') as file:
         all_planners = json.load(file)
 
@@ -115,7 +116,7 @@ def add_task(person_id, text, topic=None, date=None, progress=None, imp=False):
     task = {
         'text': text,
         'topic': topic.upper() if topic else 'GENERAL',
-        'date': date if date else '<no_deadline>',
+        'date': re.sub(r'[:.,]+', '.', date) if date else '<no_deadline>',
         'progress': progress if progress else '&#128997;',
         'important': imp
     }
@@ -168,9 +169,9 @@ def upgrade_task_progress(person_id, task_id):
 
 
 if __name__ == '__main__':
-    # add_task(587938956, 'do another math', topic='math')
-    # add_task(587938956, 'kill myself', date='15.02', imp=True)
-    # add_task(587938956, 'buy phone', date='12.02')
+    # add_new_task(587938956, 'do another math', topic='math')
+    # add_new_task(587938956, 'kill myself', date='15.02', imp=True)
+    # add_new_task(587938956, 'buy phone', date='12.02')
     # print(remove_task(587938956, 3))
     # print(get_to_do_important(587938956))
     # print(upgrade_task_progress(587938956, 10))

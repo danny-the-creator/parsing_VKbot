@@ -1,13 +1,17 @@
 import vk_api as vk
 from vk_api.utils import get_random_id
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
-from config import TOKEN, ID_BOT, HEADERS
+
+import requests
 from functools import partial
+from itertools import chain
 
 from small_features.wiki_info import wiki_search
 from small_features.destiny import dice_roll, flip_coin, num_gen, destiny_decoder
-
+from data_storage.smart_download import down_smart
 from parsing.LM_travel_deals import LM_Parser
+
+from config import TOKEN, ID_BOT, HEADERS
 
 def send_response(sender, message):
     vk_session.method("messages.send", {"chat_id": sender, "message": message, "random_id": get_random_id()})
@@ -83,9 +87,52 @@ def rand(num="10"):
 def unknown_command():
     send_response(sender, "what is my purpose?")
 
+
+def download(attachment, imp=None):
+    def inner_handle_photo():
+        print('photo')
+        url = attachment['photo']['orig_photo']['url']
+        down_smart(url, ext='jpg', imp=imp)
+
+    def inner_handle_video():
+        print('video')
+        send_response(sender, "My Lord, the quality of this video is unworthy of you.\n"
+                              "I beg you, send it as a file to protect its brilliance. ✨")
+
+    def inner_handle_audio_message():
+        if attachment['audio_message'].get('transcript_state') in ('in_progress', None):
+            return  # Skip if still in progress
+        print('audio_message')
+
+        url = attachment['audio_message']['link_ogg']
+        down_smart(url, ext='mp3', imp=imp)
+        send_response(sender, "Your voice message is saved!")
+
+    def inner_handle_doc():
+        print('doc')
+        url = attachment['doc']['url']
+        ext = attachment['doc']['ext'].replace('tui', 'mp3')
+        down_smart(url, ext=ext, imp=imp)
+        send_response(sender, f"I got your <{ext}> file 😊")
+
+    def inner_handle_unknown():
+        print('UNKNOWN')
+        send_response(sender, "I don't support that kind of input...")
+        send_sticker(sender, 69407)
+
+    handlers = {
+        'photo': inner_handle_photo,
+        'video': inner_handle_video,
+        'audio_message': inner_handle_audio_message,
+        'doc': inner_handle_doc,
+    }
+    print(sender)
+    handlers.get(attachment.get('type'), inner_handle_unknown)()
+
+
 def stopper(command):
     send_response(sender, f"Did you mean <{command}> ? \nThen I cannot help you :<")
-    # the way to send a sticker, if you want to send emodji use this in your message: &#000000; (id)
+    # the way to send a sticker, if you want to send emoji use this in your message: &#000000; (id)
     send_sticker(sender, 69407)
 
 COMMANDS = {
@@ -121,14 +168,20 @@ if __name__ == '__main__':
     print("Bot is running...")
     for event in longpoll.listen():
         if event.type == VkBotEventType.MESSAGE_NEW and event.from_chat:
-            print("New Message")
-            received_message = event.message["text"].split()
-            command = received_message[0].lower().strip()
-            rest = received_message[1:]
+            attachments = event.message["attachments"] + list(chain(*[m.get("attachments", []) for m in event.message['fwd_messages']]))
             sender = event.chat_id
-            # print(sender)
-            COMMANDS.get(command, unknown_command)(*rest)
+            if not attachments:
+                print("New Message")
+                received_message = event.message["text"].split()
+                command = received_message[0].lower().strip()
+                rest = received_message[1:]
+                sender = event.chat_id
+                # print(sender)
+                COMMANDS.get(command, unknown_command)(*rest)
+            else:
+                important = event.message["text"][2:] if event.message["text"][:2] == '-i' else None
+                for att in attachments:
+                    download(att, imp=important)
+
         else:
             print('UNKNOWN EVENT')
-
-

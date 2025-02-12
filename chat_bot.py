@@ -3,15 +3,17 @@ from vk_api.utils import get_random_id
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 
 import re
+import requests
 from functools import partial
 from itertools import chain
 
 from small_features.wiki_info import wiki_search
 from small_features.destiny import dice_roll, flip_coin, num_gen, destiny_decoder
 from data_storage.smart_download import down_smart
+from parsing.LM_travel_deals import LM_Parser
 from data_storage.to_do_list import get_to_do, get_to_do_important, upgrade_task_progress, add_new_task, remove_task
-from config import TOKEN, ID_BOT
 
+from config import TOKEN, ID_BOT, HEADERS
 
 def send_response(sender, message):
     vk_session.method("messages.send", {"chat_id": sender, "message": message, "random_id": get_random_id()})
@@ -40,7 +42,6 @@ def help():
     - add_task <message>: the message will appear in your to-do list
     - del_task <id>: removes the task under the corresponding number
     - upd_task <id>: increases the progress of the selected task
-    
 
     - dice : roles a dice for you
     - coin : flips a coin for you
@@ -64,6 +65,14 @@ def wiki(query='nothing', *args):
     if exp:
         send_sticker(sender, 69407)
 
+def lm_travel(num):
+    if parser.update_needed(hours=4):
+        parser.parse()
+        parser.fill_hottest()
+    parser.fill_tours(int(num))
+    for message in parser.prepare_message(int(num)):
+        send_response(sender, message)
+
 
 def task():
     message = get_to_do(user)
@@ -71,7 +80,6 @@ def task():
         send_response(sender, "You don't have anything in your To-Do list, lucky you...")
         return
     send_response(sender, message)
-
 
 def add_task(*args):
     commands = ''       # if the command is '', extract commands return None value
@@ -188,11 +196,10 @@ COMMANDS = {
     'help': help,
     'info': partial(stopper, 'info'),
     'stop': partial(stopper, 'stop'),
-
     'finish_reminder': partial(stopper, 'finish_reminder'),
     'forward': partial(stopper, 'forward'),
     'wiki': wiki,
-    'lm_travel': partial(stopper, 'lm_travel'),
+    'lm_travel': lm_travel,
 
     'task': task,
     'add_task': add_task,
@@ -207,9 +214,12 @@ COMMANDS = {
 
 
 
-
-
 if __name__ == '__main__':
+
+    parser = LM_Parser(500, -1, num_review=-1, dep_in=1)
+    parser.set_settings(directory='./data_storage/data', headers=HEADERS)
+    parser.set_hottest(max_price=500, min_review=8, num_review=350, dep_in=0)
+
     print("Start the session")
     vk_session = vk.VkApi(token=TOKEN)
     longpoll = VkBotLongPoll(vk_session, ID_BOT)

@@ -1,15 +1,17 @@
 import vk_api as vk
 from vk_api.utils import get_random_id
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
-from config import TOKEN, ID_BOT
+
+import re
 from functools import partial
 from itertools import chain
 
 from small_features.wiki_info import wiki_search
 from small_features.destiny import dice_roll, flip_coin, num_gen, destiny_decoder
 from data_storage.smart_download import down_smart
+from data_storage.to_do_list import get_to_do, get_to_do_important, upgrade_task_progress, add_new_task, remove_task
+from config import TOKEN, ID_BOT
 
-import requests
 
 def send_response(sender, message):
     vk_session.method("messages.send", {"chat_id": sender, "message": message, "random_id": get_random_id()})
@@ -34,7 +36,7 @@ def help():
     - wiki <your statement> : To get info about your statement from wiki
     - LM_travel : gives you several decent links about LM_travel
     
-    - list : to show all of your tasks 
+    - task : to show all of your tasks 
     - add_task <message>: the message will appear in your to-do list
     - del_task <id>: removes the task under the corresponding number
     - upd_task <id>: increases the progress of the selected task
@@ -61,6 +63,59 @@ def wiki(query='nothing', *args):
     send_response(sender, resp)
     if exp:
         send_sticker(sender, 69407)
+
+
+def task():
+    message = get_to_do(user)
+    if not message:
+        send_response(sender, "You don't have anything in your To-Do list, lucky you...")
+        return
+    send_response(sender, message)
+
+
+def add_task(*args):
+    commands = ''       # if the command is '', extract commands return None value
+
+    def inner_extract_command(pattern, commands):
+        match = re.search(pattern, commands)
+        return (match.group(0), commands[:match.start()] + commands[match.end():]) if match else (None, commands)
+
+    text = " ".join(args).split('#', 1)     # check if we have any commands
+    commands = text[0] if len(text) > 1 else commands
+    text = text[-1]
+
+    # signs in the command message which represent parameters of the function
+    imp, commands = inner_extract_command("-i ", commands)
+    date, commands = inner_extract_command(r"\d\d[;:.,|]\d\d", commands)
+    progress, commands = inner_extract_command(r"[🟩🟨🟧🟥]", commands)
+
+    # the last option which is left should be the topic, if it doesn't exist than it will be set to None (default)
+    rest_commands = [i for i in commands.split() if len(i)>0]
+    topic = rest_commands[0].lower() if rest_commands != [] else None
+
+    if len(rest_commands) > 1:
+        # If more than two words are left, then something went wrong and command is invalid
+        send_response(sender, "Oops, something went wrong...\n"
+                            "please, make sure your topic is one word and all other parameters are correct")
+        send_sticker(sender, 69398)
+        return
+
+    add_new_task(user, text, topic=topic, date=date, progress=progress, imp=imp)
+    send_response(sender, "Task added... Optimizing your path to success ⚙")
+
+def del_task(task_id):
+    if not remove_task(user, int(task_id)):
+        send_response(sender, "You cannot delete the task which doesn't exist! ")
+        return
+    send_response(sender, "Congrats! your task is finished!")
+    send_sticker(sender, 69418)
+
+def upd_task(task_id):
+    if not upgrade_task_progress(user, int(task_id)):
+        send_response(sender, "I don't know which task are you talking about?")
+        send_sticker(sender, 69414)
+        return
+    send_response(sender, "Well done! you are one step closer to finish it! 😎")
 
 
 def dice():
@@ -126,21 +181,23 @@ def stopper(command):
     send_response(sender, f"Did you mean <{command}> ? \nThen I cannot help you :<")
     # the way to send a sticker, if you want to send emoji use this in your message: &#000000; (id)
     send_sticker(sender, 69407)
+
+
 COMMANDS = {
     'start': start,
     'help': help,
     'info': partial(stopper, 'info'),
     'stop': partial(stopper, 'stop'),
 
-    'list': partial(stopper, 'list'),
-    'add_task': partial(stopper, 'add_task'),
-    'del_task': partial(stopper, 'del_task'),
-    'upd_task': partial(stopper, 'upd_task'),
-
     'finish_reminder': partial(stopper, 'finish_reminder'),
     'forward': partial(stopper, 'forward'),
     'wiki': wiki,
     'lm_travel': partial(stopper, 'lm_travel'),
+
+    'task': task,
+    'add_task': add_task,
+    'del_task': del_task,
+    'upd_task': upd_task,
 
     'dice': dice,
     'coin': coin,
@@ -167,6 +224,7 @@ if __name__ == '__main__':
                 command = received_message[0].lower().strip()
                 rest = received_message[1:]
                 sender = event.chat_id
+                user = sender_id = event.message['from_id']
                 # print(sender)
                 COMMANDS.get(command, unknown_command)(*rest)
             else:

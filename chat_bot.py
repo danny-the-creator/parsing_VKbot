@@ -167,6 +167,10 @@ def stop():
 def help():
     send_response(sender, HELP_MESSAGE)
 
+
+def info():
+    pass
+
 @access_check
 def wiki(query='nothing', *args):
     lang_codes = ['aa', 'ab', 'ae', 'af', 'ak', 'am', 'an', 'ar', 'as', 'av', 'ay', 'az', 'ba', 'be', 'bg', 'bh', 'bi',
@@ -199,6 +203,13 @@ def lm_travel(num):
     parser.fill_tours(int(num))
     for message in parser.prepare_message(int(num)):
         send_response(sender, message)
+
+@access_check
+def finish_reminder():
+    # ! Still needs to be implemented !
+    send_response(sender, "Oh no... this functionality is not done yet\nI am sure, "
+                          "my developer works hard to make it work (probably...)\nSowwy! Please don’t uninstall me!")
+    send_sticker(sender, 69407)
 
 
 @access_check
@@ -330,10 +341,10 @@ def stopper():
 COMMANDS = {
     'start': start,
     'help': help,
-    'info': stopper,
+    'info': info,
     'forward': forward,
     'stop_': stop,
-    'finish_reminder': stopper,
+    'finish_reminder': finish_reminder,
     'wiki': wiki,
     'lm_travel': lm_travel,
 

@@ -5,7 +5,7 @@ from datetime import datetime
 from win32com.client import Dispatch
 from itertools import takewhile
 from bs4 import BeautifulSoup
-PATH = r"E:\VKbot_down"
+from config import SMART_DOWN_PATH
 
 def create_shortcut(target_path, shortcut_path):
     """Creates a shortcut"""
@@ -93,7 +93,7 @@ def down_smart(url, ext='jpg', imp=None):
 
         total_len = response.headers.get('Content-Length')
         total_len_mb = int(total_len) / (1024 * 1024) if total_len else 10
-        file_name = path_creator(rf"{PATH}\main\{extensions.get(ext, 'none_of_this')}")
+        file_name = path_creator(rf"{SMART_DOWN_PATH}\main\{extensions.get(ext, 'none_of_this')}")
         # print(file_name)
 
         # Saving the file here (in chunks)
@@ -108,10 +108,10 @@ def down_smart(url, ext='jpg', imp=None):
         print("Downloaded successfully")
 
         if imp is not None:
-            create_shortcut(f"{file_name}.{ext}", imp_path(imp, dir=rf"{PATH}\important\{extensions.get(ext, 'none_of_this')}"))
+            create_shortcut(f"{file_name}.{ext}", imp_path(imp, dir=rf"{SMART_DOWN_PATH}\important\{extensions.get(ext, 'none_of_this')}"))
             print("important shortcut created")
         elif total_len_mb > 30:
-            create_shortcut(f"{file_name}.{ext}", rf"{PATH}\heavy\{extensions.get(ext, 'none_of_this')}\shortcut_{round(total_len_mb)}MB.lnk")
+            create_shortcut(f"{file_name}.{ext}", rf"{SMART_DOWN_PATH}\heavy\{extensions.get(ext, 'none_of_this')}\shortcut_{round(total_len_mb)}MB.lnk")
             print("heavy shortcut created")
     except Exception as exp:
         print("Something went wrong...")

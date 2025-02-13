@@ -307,6 +307,7 @@ Here’s the most promising option for your next adventure:
 
 🏨 **Accommodation:** {} ({})  
 📍 **Destination:** {} — currently enjoying *{}*.  
+💸 **Estimated Cost:** {}€ — worth every moment and every mile.
 ⭐ Rated *{}/10*, based on **{} reviews**.
 
 🛫 Your journey starts from **{}**, with *{} days* of relaxation and exploration ahead.
@@ -326,7 +327,7 @@ Psss... if you want to know more about this deal, just click here:
 
         hot_deal_str = "!!! ATTENTION VERY HOT DEAL 🥵🔥 !!!\n\n" + deal_str
         hot_deals_messages = [hot_deal_str.format(
-            deal['name'], deal['stars'], deal['country'], deal['weather'], deal['review'], deal['quantity'],
+            deal['name'], deal['stars'], deal['country'], deal['weather'], deal['price'], deal['review'], deal['quantity'],
             deal['departure'], deal['tour_length'], deal['days_left'], deal['location'], deal['service'], deal['link']
         ) for deal in hot_deals.values()]
 
@@ -345,7 +346,7 @@ Psss... if you want to know more about this deal, just click here:
                     break
 
         reg_deals_messages = [deal_str.format(
-            deal['name'], deal['stars'], deal['country'], deal['weather'], deal['review'], deal['quantity'],
+            deal['name'], deal['stars'], deal['country'], deal['weather'], deal['price'], deal['review'], deal['quantity'],
             deal['departure'], deal['tour_length'], deal['days_left'], deal['location'], deal['service'], deal['link']
         ) for deal in rest_deals.values()]
 

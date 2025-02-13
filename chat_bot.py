@@ -75,6 +75,21 @@ def keyboard_ext():
     return keyboard.get_keyboard()
 
 
+def access_check(func):
+    def wrapper(*rest):
+        global LAST_COMMANDS
+
+        if func.__name__ in all_users[id_name[sender_id]]['access_rights'] or func.__name__ == 'unknown_command':
+            func(*rest)
+            if func.__name__ not in ["last", "unknown_command"]:
+                LAST_COMMANDS[sender] = partial(func, *rest)
+        else:
+            send_response(sender, "Sorry, I cannot do that for you")
+            send_sticker(sender, 69385)
+
+    return wrapper
+
+@access_check
 def forward(*args):
     receivers = []
     for receiver in args:
@@ -133,33 +148,26 @@ def transmission(receivers):
                 send_response(all_users['me']['chat'], f"{user_name} sends: \"{message}\"", key_v=1)
 
 
-def execute(func, user, *rest):
-    global LAST_COMMANDS
-    print(user)
-    if func.__name__ in all_users[id_name[user]]['access_rights'] or func.__name__ == 'unknown_command':
-        func(*rest)
-        if func.__name__ not in ["last", "unknown_command"]:
-            LAST_COMMANDS[sender] = partial(func, *rest)
-    else:
-        send_response(sender, "Sorry, I cannot do that for you")
-        send_sticker(sender, 69385)
-
+@access_check
 def last():
     LAST_COMMANDS.get(
         sender, lambda: send_response(sender, "I am sorry, but I don't remember your last command... &#128533;"))()
 
 
-
+@access_check
 def start():
     send_response(sender, "I AM ALIVE!!!")
 
+@access_check
 def stop():
     send_response(sender, "What do you want me to stop? Your heart?")
     send_sticker(sender, 69391)
 
+@access_check
 def help():
     send_response(sender, HELP_MESSAGE)
 
+@access_check
 def wiki(query='nothing', *args):
     lang_codes = ['aa', 'ab', 'ae', 'af', 'ak', 'am', 'an', 'ar', 'as', 'av', 'ay', 'az', 'ba', 'be', 'bg', 'bh', 'bi',
                   'bm', 'bn', 'bo', 'br', 'bs', 'ca', 'ce', 'ch', 'co', 'cr', 'cs', 'cu', 'cv', 'cy', 'da', 'de', 'dv',
@@ -183,6 +191,7 @@ def wiki(query='nothing', *args):
     if exp:
         send_sticker(sender, 69407)
 
+@access_check
 def lm_travel(num):
     if parser.update_needed(hours=4):
         parser.parse()
@@ -192,17 +201,17 @@ def lm_travel(num):
         send_response(sender, message)
 
 
+@access_check
 def task():
-    user = all_users[chat_name[sender]]['id']
-    message = get_to_do(user)
+    message = get_to_do(sender_id)
     if not message:
         send_response(sender, "You don't have anything in your To-Do list, lucky you...")
         return
     send_response(sender, message)
 
+@access_check
 def add_task(*args):
     commands = ''       # if the command is '', extract commands return None value
-    user = all_users[chat_name[sender]]['id']
 
     def inner_extract_command(pattern, commands):
         match = re.search(pattern, commands)
@@ -228,35 +237,39 @@ def add_task(*args):
         send_sticker(sender, 69398)
         return
 
-    add_new_task(user, text, topic=topic, date=date, progress=progress, imp=imp)
+    add_new_task(sender_id, text, topic=topic, date=date, progress=progress, imp=imp)
     send_response(sender, "Task added... Optimizing your path to success ⚙")
 
+@access_check
 def del_task(task_id):
-    user = all_users[chat_name[sender]]['id']
-    if not remove_task(user, int(task_id)):
+    if not remove_task(sender_id, int(task_id)):
         send_response(sender, "You cannot delete the task which doesn't exist! ")
         return
     send_response(sender, "Congrats! your task is finished!")
     send_sticker(sender, 69418)
 
+@access_check
 def upd_task(task_id):
-    user = all_users[chat_name[sender]]['id']
-    if not upgrade_task_progress(user, int(task_id)):
+    if not upgrade_task_progress(sender_id, int(task_id)):
         send_response(sender, "I don't know which task are you talking about?")
         send_sticker(sender, 69414)
         return
     send_response(sender, "Well done! you are one step closer to finish it! 😎")
 
 
+@access_check
 def dice():
     send_response(sender,f"You got: {dice_roll()}")
 
+@access_check
 def coin():
     send_response(sender, flip_coin())
 
+@access_check
 def magic_advice():
     send_response(sender, destiny_decoder())
 
+@access_check
 def rand(num="10"):
     send_response(sender, f"You got: {num_gen(int(num))}")
 
@@ -307,6 +320,7 @@ def download(attachment, imp=None):
     handlers.get(attachment.get('type'), inner_handle_unknown)()
 
 
+@access_check
 def stopper():
     send_response(sender, f"Did you mean <{command}> ? \nThen I cannot help you :<")
     # the way to send a sticker, if you want to send emoji use this in your message: &#000000; (id)
@@ -367,7 +381,7 @@ if __name__ == '__main__':
                 command = received_message[0].lower().strip()
                 rest = received_message[1:]
 
-                execute(COMMANDS.get(command, unknown_command), sender_id, *rest)
+                COMMANDS.get(command, unknown_command)(*rest)
             elif all_users['me']['id'] == sender_id:
                 # Check if the person is not me
                 important = event.message["text"][2:] if event.message["text"][:2] == '-i' else None

@@ -150,26 +150,26 @@ def transmission(receivers):
 
 
 @access_check
-def last():
+def last(*_):
     LAST_COMMANDS.get(
         sender, lambda: send_response(sender, "I am sorry, but I don't remember your last command... &#128533;"))()
 
 
 @access_check
-def start():
+def start(*_):
     send_response(sender, "I AM ALIVE!!!")
 
 @access_check
-def stop():
+def stop(*_):
     send_response(sender, "What do you want me to stop? Your heart?")
     send_sticker(sender, 69391)
 
 @access_check
-def help():
+def help(*_):
     send_response(sender, HELP_MESSAGE)
 
 
-def info():
+def info(*_):
     temp, forecast = get_weather()
     currency = get_currency()
     tasks = get_to_do_important(sender_id)
@@ -227,7 +227,7 @@ def wiki(query='nothing', *args):
         send_sticker(sender, 69407)
 
 @access_check
-def lm_travel(num):
+def lm_travel(num, *_):
     if parser.update_needed(hours=4):
         parser.parse()
         parser.fill_hottest()
@@ -236,7 +236,7 @@ def lm_travel(num):
         send_response(sender, message)
 
 @access_check
-def finish_reminder():
+def finish_reminder(*_):
     # ! Still needs to be implemented !
     send_response(sender, "Oh no... this functionality is not done yet\nI am sure, "
                           "my developer works hard to make it work (probably...)\nSowwy! Please don’t uninstall me!")
@@ -244,7 +244,7 @@ def finish_reminder():
 
 
 @access_check
-def task():
+def task(*_):
     message = get_to_do(sender_id)
     if not message:
         send_response(sender, "You don't have anything in your To-Do list, lucky you...")
@@ -283,7 +283,7 @@ def add_task(*args):
     send_response(sender, "Task added... Optimizing your path to success ⚙")
 
 @access_check
-def del_task(task_id):
+def del_task(task_id, *_):
     if not remove_task(sender_id, int(task_id)):
         send_response(sender, "You cannot delete the task which doesn't exist! ")
         return
@@ -291,7 +291,7 @@ def del_task(task_id):
     send_sticker(sender, 69418)
 
 @access_check
-def upd_task(task_id):
+def upd_task(task_id, *_):
     if not upgrade_task_progress(sender_id, int(task_id)):
         send_response(sender, "I don't know which task are you talking about?")
         send_sticker(sender, 69414)
@@ -300,25 +300,28 @@ def upd_task(task_id):
 
 
 @access_check
-def dice():
+def dice(*_):
     send_response(sender,f"You got: {dice_roll()}")
 
 @access_check
-def coin():
+def coin(*_):
     send_response(sender, flip_coin())
 
 @access_check
-def magic_advice():
+def magic_advice(*_):
     send_response(sender, destiny_decoder())
 
 @access_check
-def rand(num="10"):
+def rand(num="10", *_):
     send_response(sender, f"You got: {num_gen(int(num))}")
 
 
-def unknown_command():
+def unknown_command(*_):
     send_response(sender, "what is my purpose?")
 
+def error_message():
+    send_response(sender, "I made a little oops. Can we hit the reset button?")
+    send_sticker(sender, 69380)
 
 def download(attachment, imp=None):
     def inner_handle_photo():
@@ -422,8 +425,10 @@ if __name__ == '__main__':
                 received_message = received_message.split()
                 command = received_message[0].lower().strip()
                 rest = received_message[1:]
-
-                COMMANDS.get(command, unknown_command)(*rest)
+                try:
+                    COMMANDS.get(command, unknown_command)(*rest)
+                except Exception:
+                    error_message()
             elif all_users['me']['id'] == sender_id:
                 # Check if the person is not me
                 important = event.message["text"][2:] if event.message["text"][:2] == '-i' else None

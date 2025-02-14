@@ -33,7 +33,7 @@ HELP_MESSAGE = """
     - stop_ : Stops the current process and returns to the main functionality
     - finish_reminder <number> : mark the reminder as done and stops reminding about it
     - wiki <your statement> : To get info about your statement from wiki
-    - LM_travel : gives you several decent links about LM_travel
+    - LM_travel <num>: gives you num decent links about LM_travel
 
     - task : to show all of your tasks 
     - add_task <message>: the message will appear in your to-do list

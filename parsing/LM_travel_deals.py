@@ -45,6 +45,11 @@ class LM_Parser:
         self.dep_loc_hot = dep_loc
         self._hottest_set = True
 
+    def get_hot_len(self):
+        """Returns number of hot deals"""
+        with open(f"{self.directory}/hottest_deals.json", "r", encoding="utf-8") as file:
+            hot_deals = json.load(file)
+        return len(hot_deals)
 
     def _save_html(self, src, index=''):
         """Saves the current request (with the given index) as a html file if you have problems with internet"""

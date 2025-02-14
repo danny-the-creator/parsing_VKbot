@@ -11,7 +11,7 @@ def get_weather():
     soup = BeautifulSoup(response.text, 'lxml')
     temp = soup.find('div', class_='temp-container').find('div', class_='temp').text
     state = soup.find('div', class_= 'cur-con-weather-card__panel').find('div', class_='').find('span', class_='phrase').text
-    return temp, state
+    return temp, state.lower()
 
 def get_currency():
     cg = CoinGeckoAPI()
@@ -20,9 +20,11 @@ def get_currency():
     usd = cr.convert(1, 'EUR', 'GBP')
     gbp = cr.convert(1, 'EUR', 'GBP')
     bitcoin = cg.get_price(ids='bitcoin', vs_currencies='eur')
-    return {'usd': round(usd, 3),
-            'gbd': round(gbp, 3),
-            'bitcoin': bitcoin['bitcoin'].get('eur')}
+    return f"Usd: {round(usd, 3)} €\n" \
+           f"Gbd: {round(gbp, 3)} €\n" \
+           f"Bitcoin: {bitcoin['bitcoin'].get('eur')} €\n"
+
+
 
 
 if __name__ == '__main__':

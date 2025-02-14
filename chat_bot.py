@@ -13,6 +13,7 @@ from small_features.destiny import dice_roll, flip_coin, num_gen, destiny_decode
 from data_storage.smart_download import down_smart
 from parsing.LM_travel_deals import LM_Parser
 from data_storage.to_do_list import get_to_do, get_to_do_important, upgrade_task_progress, add_new_task, remove_task
+from small_features.get_info import get_weather, get_currency
 
 from config import TOKEN, ID_BOT, HEADERS, all_users, id_name, chat_name
 
@@ -169,7 +170,37 @@ def help():
 
 
 def info():
-    pass
+    temp, forecast = get_weather()
+    currency = get_currency()
+    tasks = get_to_do_important(sender_id)
+    message = f"""
+Systems online, nice to see you back! ✨
+Hope you're having an amazing day, and I am here to make it even better! 😌
+It’s currently {temp} and {forecast} outside, a perfect day to take over the world!
+    
+Current currency: 💰 
+{currency}
+    
+As always I'm ready to serve you, just say whenever you’re ready!
+Good Luck, Commander!
+    
+Your To-Do list for today: 📋 
+    
+{tasks}
+    
+"""
+    num_hot = parser.get_hot_len()
+    if num_hot == 0:
+        lm_travel(num_hot)
+        num_hot = parser.get_hot_len()
+
+    if num_hot > 0:
+        message += "\nReport compiled! Here’s the latest data from today’s scan: 🔍"
+
+    send_response(sender, message)
+
+    lm_travel(num_hot)
+
 
 @access_check
 def wiki(query='nothing', *args):

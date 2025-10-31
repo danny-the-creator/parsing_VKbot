@@ -1,8 +1,7 @@
 import re
 import itertools
 import locale
-from googletrans import Translator
-
+from deep_translator import GoogleTranslator
 import requests
 from bs4 import BeautifulSoup
 import json
@@ -83,14 +82,14 @@ class LM_Parser:
 
         description = soup.find('div', class_='cor-acco-short-description')
         description = self._safe_find(description, ('p','')) if self._safe_find(description, ('p','')) else description
-        description = self._translate(description.text.strip(), 'nl', 'en') if description else "<not_defined>"
+        description = self._translate(description.text.strip(), 'auto', 'en') if description else "<not_defined>"
         # print(description)
 
         # The following information can sometimes not be found, so it will be set as <not_defined> in this case
         location = soup.find('div', class_='cor-acco-info__description')
         try:
             location = location.find_all(string=re.compile(r"Ligging"), limit=2)[-1].find_parent().find_next_sibling().text
-            location = self._translate('\n'.join([f"- {point}" for point in location.strip().split('\n')]), 'nl', 'en')
+            location = self._translate('\n'.join([f"- {point}" for point in location.strip().split('\n')]), 'auto', 'en')
         except (AttributeError, IndexError) as e:
             location = "<not_defined>"
         # print(location)
@@ -98,7 +97,7 @@ class LM_Parser:
         service = soup.find('div', class_='cor-acco-info__description')
         try:
             service = service.find_all(string=re.compile(r"Verzorging"), limit=2)[-1].find_parent().find_next_sibling().text
-            service = self._translate('\n'.join([f"- {point}" for point in service.strip().split('\n') if len(point.strip())!=0]), 'nl', 'en')
+            service = self._translate('\n'.join([f"- {point}" for point in service.strip().split('\n') if len(point.strip())!=0]), 'auto', 'en')
         except (AttributeError, IndexError) as e:
             service = "<not_defined>"
         # print(service)
@@ -116,13 +115,13 @@ class LM_Parser:
         data = datetime.strptime(dep.split(" (")[0], "%d %b %Y")
         return int((data - datetime.now()).days) + 1                # taking today into account
 
-    def _translate(self, text, src, dest):
+    def _translate(self, text, src="auto", dest="en"):
         """Translates given text, if some problems appears, returns text unchanged"""
-        if not self._translator:
-            self._translator = Translator()
+        if not self._translator or (self._translator.source, self._translator.target) != (src, dest) :
+            self._translator = GoogleTranslator(source=src, target=dest)
         try:
-            return self._translator.translate(text, src=src, dest=dest).text
-        except AttributeError as e:
+            return self._translator.translate(text)
+        except Exception as e:
             print(e)
             return text
 

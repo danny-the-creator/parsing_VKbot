@@ -2,6 +2,7 @@ import vk_api as vk
 from vk_api.utils import get_random_id
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
+from langchain_ollama import OllamaLLM
 
 import re
 import threading
@@ -49,6 +50,26 @@ HELP_MESSAGE = """
     """
 
 
+def init_parser():
+    parser = LM_Parser(500, -1, num_review=-1, dep_in=1)
+    parser.set_settings(directory='./data_storage/data', headers=HEADERS)
+    parser.set_hottest(max_price=500, min_review=8, num_review=350, dep_in=0)
+    print("Parser is ready")
+    return parser
+
+def init_ai_model(ai_model="llama3.1"):
+    model = OllamaLLM(model=ai_model)
+    print(f"Model <{model}> is ready>!")
+    return model
+
+def init_vk_bot():
+    print("Start the session")
+    vk_session = vk.VkApi(token=TOKEN)
+    longpoll = VkBotLongPoll(vk_session, ID_BOT)
+    print("Bot is running...")
+    return vk_session, longpoll
+
+
 def send_response(sender, message, key_v=0):
     keyboard = keyboard_ext() if key_v else keyboard_main()
     vk_session.method(
@@ -58,7 +79,7 @@ def send_sticker(sender, id):
     vk_session.method("messages.send", {"chat_id": sender, "sticker_id": id, "random_id": get_random_id()})
 
 def delete_message(sender, message_id):     # !! Works a bit strange, probably will be easier to delete it
-    vk_control.messages.delete(group_id=ID_BOT, peer_id=2000000000+sender, cmids=message_id, delete_for_all=1)
+    vk_session.get_api().messages.delete(group_id=ID_BOT, peer_id=2000000000+sender, cmids=message_id, delete_for_all=1)
 
 
 def keyboard_main():
@@ -398,15 +419,10 @@ COMMANDS = {
 
 if __name__ == '__main__':
 
-    parser = LM_Parser(500, -1, num_review=-1, dep_in=1)
-    parser.set_settings(directory='./data_storage/data', headers=HEADERS)
-    parser.set_hottest(max_price=500, min_review=8, num_review=350, dep_in=0)
+    parser = init_parser()
+    model = init_ai_model()
 
-    print("Start the session")
-    vk_session = vk.VkApi(token=TOKEN)
-    longpoll = VkBotLongPoll(vk_session, ID_BOT)
-    vk_control = vk_session.get_api()
-    print("Bot is running...")
+    vk_session, longpoll = init_vk_bot()
 
     for event in longpoll.listen():
         if event.type == VkBotEventType.MESSAGE_NEW and event.from_chat:

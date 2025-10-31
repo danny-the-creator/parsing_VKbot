@@ -1,11 +1,22 @@
 import random
 
 
+def flip_coin():
+    return "HEAD 🪙" if random.random() >= 0.5 else "TAIL 🪙"
+
 def dice_roll():
     return str(random.randint(1, 6))
 
-def flip_coin():
-    return "HEAD 🪙" if random.random() >= 0.5 else "TAIL 🪙"
+def dice_roll_20():
+    num = random.randint(1, 20)
+    if num == 20:
+        return f"NATURAL 20💥 - Critical Success! 🎯"
+    if num == 1:
+        return f"1😬 - Critical Fail... 💀"
+    return f"{num} 🪄"
+
+def num_gen(num):
+    return str(random.randint(1, num))
 
 def destiny_decoder():
     DECODER = {
@@ -33,9 +44,6 @@ def destiny_decoder():
         19: "AI model needs more training—ask again soon",
     }
     return DECODER[random.randint(0, 19)]
-
-def num_gen(num):
-    return str(random.randint(1, num))
 
 
 

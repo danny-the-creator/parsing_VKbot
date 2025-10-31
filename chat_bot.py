@@ -10,7 +10,7 @@ from functools import partial
 from itertools import chain
 
 from small_features.wiki_info import wiki_search
-from small_features.destiny import dice_roll, flip_coin, num_gen, destiny_decoder
+from small_features.destiny import dice_roll, dice_roll_20, flip_coin, num_gen, destiny_decoder
 from data_storage.smart_download import down_smart
 from parsing.LM_travel_deals import LM_Parser
 from data_storage.to_do_list import get_to_do, get_to_do_important, upgrade_task_progress, add_new_task, remove_task
@@ -37,11 +37,12 @@ HELP_MESSAGE = """
     - LM_travel <num>: gives you num decent links about LM_travel
 
     - task : to show all of your tasks 
-    - add_task <message>: the message will appear in your to-do list
-    - del_task <id>: removes the task under the corresponding number
-    - upd_task <id>: increases the progress of the selected task
+    - add_task <message> : the message will appear in your to-do list
+    - del_task <id> : removes the task under the corresponding number
+    - upd_task <id> : increases the progress of the selected task
 
-    - dice : roles a dice for you
+    - dice : roles a regular dice for you
+    - d20 : roles a d20 dice for you
     - coin : flips a coin for you
     - magic_advice : tells you the destiny
     - rand <number> : returns you random number in range
@@ -59,7 +60,7 @@ def init_parser():
 
 def init_ai_model(ai_model="llama3.1"):
     model = OllamaLLM(model=ai_model)
-    print(f"Model <{model}> is ready>!")
+    print(f"Model <{ai_model}> is ready>!")
     return model
 
 def init_vk_bot():
@@ -325,6 +326,10 @@ def dice(*_):
     send_response(sender,f"You got: {dice_roll()}")
 
 @access_check
+def d20(*_):
+    send_response(sender,f"You got: {dice_roll_20()}")
+
+@access_check
 def coin(*_):
     send_response(sender, flip_coin())
 
@@ -409,6 +414,7 @@ COMMANDS = {
     'upd_task': upd_task,
 
     'dice': dice,
+    'd20': d20,
     'coin': coin,
     'magic_advice': magic_advice,
     'rand': rand,

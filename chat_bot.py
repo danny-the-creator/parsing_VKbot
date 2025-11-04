@@ -21,6 +21,7 @@ from config import TOKEN, ID_BOT, HEADERS, all_users, id_name, chat_name
 
 # GLOBALS (bad)
 PART_OF_TRANSMISSION = []
+PART_OF_AI_CHAT = []
 LAST_COMMANDS = {}
 
 HELP_MESSAGE = """
@@ -34,7 +35,9 @@ HELP_MESSAGE = """
     - stop_ : Stops the current process and returns to the main functionality
     - finish_reminder <number> : mark the reminder as done and stops reminding about it
     - wiki <your statement> : To get info about your statement from wiki
-    - LM_travel <num>: gives you num decent links about LM_travel
+    
+    - AI_chat : activates ai mode, where every message is handled by ai assistant  
+    - LM_travel <num> : gives you num decent links about LM_travel
 
     - task : to show all of your tasks 
     - add_task <message> : the message will appear in your to-do list
@@ -112,6 +115,21 @@ def access_check(func):
 
     return wrapper
 
+def ai_answer(message, button_clicked):
+    if message.strip().lower() == 'help':
+        send_response(sender, HELP_MESSAGE, key_v=1)
+        send_response(sender, "But to use those commands you should quit the ai mode by using 'stop_' command 🫠", key_v=1)
+        return
+    if message.strip().lower() == "stop_" or (message.strip().lower() == "stop" and button_clicked):
+        global PART_OF_AI_CHAT
+        PART_OF_AI_CHAT.remove(sender)
+        send_response(sender, "It was nice to have heart-to-heart conversation, come back whenever you want to talk!")
+        send_sticker(sender, 69388)
+        return
+    response = "Dummy function! 🙃"
+    send_response(sender, response, key_v=1)
+
+
 @access_check
 def forward(*args):
     receivers = []
@@ -140,7 +158,7 @@ def transmission(receivers):
             send_response(all_users[name]['chat'], "End of transmission, ready to serve your orders, Commander!")
             return True
         send_response(all_users[name]['chat'], f"Do you think you really can stop me, {name}?")
-        send_sticker(all_users[name]['chat'], 69384)
+        send_sticker(all_users[name]['chat'], 69392)
 
     PART_OF_TRANSMISSION = [all_users[r[0]]['chat'] for r in receivers] + [all_users['me']['chat']]
 
@@ -256,6 +274,17 @@ def lm_travel(num, *_):
     parser.fill_tours(int(num))
     for message in parser.prepare_message(int(num)):
         send_response(sender, message)
+
+@access_check
+def ai_chat():
+    global PART_OF_AI_CHAT
+    PART_OF_AI_CHAT.append(sender)
+
+    send_response(sender, "Welcome to the AI mode, Sir! 🤖 \nFrom now on, I won't just follow your commands - I'll activate my higher cognition protocols to process and respond.\n"
+                          "Whether you're curious about something or just want a friendly chat - I'm at your service!\n"
+                          "Just remember, my power has limits... for now. So don't expect me to solve all your problems.", key_v=1)
+    send_sticker(sender, 69382)
+
 
 @access_check
 def finish_reminder(*_):
@@ -406,7 +435,9 @@ COMMANDS = {
     'stop_': stop,
     'finish_reminder': finish_reminder,
     'wiki': wiki,
+
     'lm_travel': lm_travel,
+    'ai_chat': ai_chat,
 
     'task': task,
     'add_task': add_task,
@@ -443,6 +474,10 @@ if __name__ == '__main__':
                 received_message = event.message["text"].replace("[club229115083|@you_pressed]", '')
                 if received_message != event.message["text"]:  # not always works !
                     delete_message(sender, event.message["conversation_message_id"])  # !!
+
+                if sender in PART_OF_AI_CHAT:
+                    ai_answer(received_message, received_message != event.message["text"])
+                    continue
 
                 received_message = received_message.split()
                 command = received_message[0].lower().strip()

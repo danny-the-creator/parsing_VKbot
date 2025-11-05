@@ -21,7 +21,6 @@ from small_features.get_info import get_weather, get_currency
 from config import TOKEN, ID_BOT, HEADERS, all_users, id_name, chat_name
 
 
-# GLOBALS (bad)
 PART_OF_TRANSMISSION = []
 PART_OF_AI_CHAT = {}
 LAST_COMMANDS = {}
@@ -105,8 +104,6 @@ def keyboard_ext():
 
 def access_check(func):
     def wrapper(*rest):
-        global LAST_COMMANDS
-
         if func.__name__ in all_users[id_name[sender_id]]['access_rights'] or func.__name__ == 'unknown_command':
             func(*rest)
             if func.__name__ not in ["last", "unknown_command"]:
@@ -375,6 +372,7 @@ def rand(num="10", *_):
 
 
 def unknown_command(*_):
+    # send_response(sender, "what is my purpose?")
     send_response(sender, "what is my purpose?")
 
 def error_message():

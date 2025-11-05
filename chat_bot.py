@@ -374,7 +374,7 @@ def rand(num="10", *_):
 def unknown_command(*_):
     # send_response(sender, "what is my purpose?")
     send_response(sender, "Oops, this command sounds unfamiliar...\nPress the <HELP> button to find out about all the available commands and how to use them!")
-    send_sticker(sender, 69344)
+    send_sticker(sender, 69384)
 
 def error_message():
     send_response(sender, "I made a little oops. Can we hit the reset button?")

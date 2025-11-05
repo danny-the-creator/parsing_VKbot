@@ -7,13 +7,14 @@ from langchain_ollama import OllamaLLM
 import re
 import threading
 from functools import partial
+from collections import deque
 from itertools import chain
 
 from small_features.wiki_info import wiki_search
 from small_features.destiny import dice_roll, dice_roll_20, flip_coin, num_gen, destiny_decoder
 from data_storage.smart_download import down_smart
 from parsing.LM_travel_deals import LM_Parser
-from AI_integration.LLM_integration import generate_response
+from AI_integration.LLM_integration import generate_response, CHAT_HISTORY_LEN
 from data_storage.to_do_list import get_to_do, get_to_do_important, upgrade_task_progress, add_new_task, remove_task
 from small_features.get_info import get_weather, get_currency
 
@@ -22,7 +23,7 @@ from config import TOKEN, ID_BOT, HEADERS, all_users, id_name, chat_name
 
 # GLOBALS (bad)
 PART_OF_TRANSMISSION = []
-PART_OF_AI_CHAT = []
+PART_OF_AI_CHAT = {}
 LAST_COMMANDS = {}
 
 HELP_MESSAGE = """
@@ -122,14 +123,15 @@ def ai_answer(message, button_clicked):
         send_response(sender, "But to use those commands you should quit the ai mode by using 'stop_' command 🫠", key_v=1)
         return
     if message.strip().lower() == "stop_" or (message.strip().lower() == "stop" and button_clicked):
-        global PART_OF_AI_CHAT
-        PART_OF_AI_CHAT.remove(sender)
+        PART_OF_AI_CHAT.pop(sender)
         send_response(sender, "It was nice to have heart-to-heart conversation, come back whenever you want to talk!")
         send_sticker(sender, 69388)
         return
     # response = "Dummy function! 🙃"
-    response = generate_response(message, chat_model=model)
+
+    response = generate_response(message, chat_model=model, metadata={"sender": sender, "history": PART_OF_AI_CHAT[sender]})
     send_response(sender, response, key_v=1)
+    PART_OF_AI_CHAT[sender].append((message, response))
 
 
 @access_check
@@ -279,8 +281,7 @@ def lm_travel(num, *_):
 
 @access_check
 def ai_chat():
-    global PART_OF_AI_CHAT
-    PART_OF_AI_CHAT.append(sender)
+    PART_OF_AI_CHAT[sender] = deque(maxlen=CHAT_HISTORY_LEN)
 
     send_response(sender, "Welcome to the AI mode, Sir! 🤖 \nFrom now on, I won't just follow your commands - I'll activate my higher cognition protocols to process and respond.\n"
                           "Whether you're curious about something or just want a friendly chat - I'm at your service!\n"

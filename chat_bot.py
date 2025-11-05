@@ -277,7 +277,7 @@ def lm_travel(num, *_):
         send_response(sender, message)
 
 @access_check
-def ai_chat():
+def ai_chat(*_):
     PART_OF_AI_CHAT[sender] = deque(maxlen=CHAT_HISTORY_LEN)
 
     send_response(sender, "Welcome to the AI mode, Sir! 🤖 \nFrom now on, I won't just follow your commands - I'll activate my higher cognition protocols to process and respond.\n"
@@ -373,7 +373,8 @@ def rand(num="10", *_):
 
 def unknown_command(*_):
     # send_response(sender, "what is my purpose?")
-    send_response(sender, "what is my purpose?")
+    send_response(sender, "Oops, this command sounds unfamiliar...\nPress the <HELP> button to find out about all the available commands and how to use them!")
+    send_sticker(sender, 69344)
 
 def error_message():
     send_response(sender, "I made a little oops. Can we hit the reset button?")
@@ -485,7 +486,9 @@ if __name__ == '__main__':
                 rest = received_message[1:]
                 try:
                     COMMANDS.get(command, unknown_command)(*rest)
-                except Exception:
+                except Exception as e:
+                    e_len = min((len(str(e))+9), 150)
+                    print(f"{'='*e_len}\n!ERROR!: {e}\n{'='*e_len}")
                     error_message()
             elif all_users['me']['id'] == sender_id:
                 # Check if the person is not me

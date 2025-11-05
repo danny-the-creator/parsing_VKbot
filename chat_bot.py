@@ -13,6 +13,7 @@ from small_features.wiki_info import wiki_search
 from small_features.destiny import dice_roll, dice_roll_20, flip_coin, num_gen, destiny_decoder
 from data_storage.smart_download import down_smart
 from parsing.LM_travel_deals import LM_Parser
+from AI_integration.LLM_integration import generate_response
 from data_storage.to_do_list import get_to_do, get_to_do_important, upgrade_task_progress, add_new_task, remove_task
 from small_features.get_info import get_weather, get_currency
 
@@ -126,7 +127,8 @@ def ai_answer(message, button_clicked):
         send_response(sender, "It was nice to have heart-to-heart conversation, come back whenever you want to talk!")
         send_sticker(sender, 69388)
         return
-    response = "Dummy function! 🙃"
+    # response = "Dummy function! 🙃"
+    response = generate_response(message, chat_model=model)
     send_response(sender, response, key_v=1)
 
 
